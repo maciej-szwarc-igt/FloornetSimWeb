@@ -1,0 +1,77 @@
+﻿namespace IGT.FloorNet.Tools.ServiceSimulator.Models
+{
+    public class Constants
+    {
+        public const string Request = "Received request";
+        public const string Response = "Received response";
+        public const string InvalidResponse = "Invalid response, please check your input";
+        public const string NoResponse = "No response";
+        public const string BlockLine = "=============================";
+        public const string ResponseEvt = "Event sent";
+        public const string ReceiveEvt = "Event received";
+        public const string ReceiveRpc = "RPC received";
+        public const string FailResponseEvt = "Fail event sent";
+        public const string GetValidationId = "Get Validation Id";
+        public const string IssueVoucher = "Issue Voucher";
+        public const string RedeemVoucher = "Redeem Voucher";
+        public const string CommitVoucher = "Commit Voucher";
+        public const string RejectVoucher = "Reject Voucher";
+        public const string RedeemedVoucher = "Redeemed Voucher";
+        public const string VoucherRedemptionRequested = "Voucher Redemption Request";
+        public const string RabbitMqConnectionFail = "RabbitMQ Connection Fail";
+        public const string RabbitMqConnecting = "Connecting to RabbitMQ...";
+        public const string GetValidationPin = "Get Validation Pin";
+        public const string GetEncryptPin = "Get Encryption Pin";
+        public const string MarkerDownload = "Marker Download";
+        public const string MarkerUpload = "Marker Upload";
+        public const string MarkerBalance = "Marker Balance";
+        public const string JwtDecode = "JWT Decode";
+        public const string GetAllServiceInterface = "getAllServiceInterfaces";
+        public const string Error = "Error";
+        public const string ValidatePin = "Validate Pin";
+        public const string RequestParams = "Request Parameters";
+        public const string HttpHeaderRequest = "Headers";
+        public const string HttpResponse = "Http Response";
+        public const string JWTDecodedToken = "Decoded Token";
+        public const string JWTToken = "Token";
+        public const string EnableEGMWithLease = "Enable EGM With Lease";
+        public const string DisableEGMWithLease = "Disable EGM With Lease";
+        public const string GetEnableEGMWithLease = "Get EGM Enable With Lease";        
+        public const string GetDisableEGMOnCardOutKeys = "Get Disable EGM On Card Out Keys";
+        public const string DisableEGM = "Disable EGM";
+        public const string GetRegistration = "Get Registration";
+        public const string SetRegistration = "Set Registration";
+        public const string Reset = "Reset";
+        public const string GetDisableKeys = "Get Disable Keys";
+        public const string LockBV = "Lock BV";
+        public const string GetLockBVKeys = "Get Lock BV Keys";
+        public const string LockBVOnCardOut = "Lock BV On Card Out";
+        public const string DisableEGMOnCardOut = "Disable EGM On Card Out";
+        public const string LockEGM = "Lock EGM";
+        public const string GetLockEGMKeys = "Get Lock EGM Keys";
+        public const string BonusHit = "BonusHit";
+        public const string DoVerification = "DoVerification";
+        public const string GetPackageList = "GetPackageList";
+        public const string GetMeters = "GetMeters";
+        public const string GetMgaDescriptions = "GetMgaDescriptions";
+        public const string GetCardPresent = "Get Card Present";
+        public const string ForceCardIn = "Force Card In";
+        public const string RequestTransfer = "Request Transfer";
+        public const string ForceCardOut = "Force Card Out";
+        public const string SetClearance = "Set Clearance";
+        public const string RPCEmployeeCardData = " Employee Card Data";
+        public const string RPCPlayerCardData = " Player Card Data";
+        public const string LevelReset = "LevelReset";
+        public const string LevelUpdate = "LevelUpdate";
+        public const string WatHeartbeat = "WatHeartbeat";
+        public const string WatConfig = "WatConfig";
+        public const string StartCelebration = "StartCelebration";
+        public const string StartAnticipation = "StartAnticipation";
+        public const string RequestDebit = "RequestDebit";
+        public const string SmibUidRegex = "^IGT_\\d{8,}$";
+        public const string EFTService = "Eft Service";
+        public const string ISmibEft = "ISmibEft";
+        public const string ResetHandpay = "Reset Handpay";
+        public const string AdjustAccount = "Adjust Account";
+    }
+}

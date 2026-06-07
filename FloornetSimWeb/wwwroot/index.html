@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FloorNet Service Simulator</title>
+    <link rel="stylesheet" href="css/style.css?v=15">
+</head>
+<body>
+    <header>
+        <h1>FloorNet Service Simulator</h1>
+        <div id="status-bar">
+            <span id="status-indicator" class="status disconnected">Disconnected</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="tab-bar" id="tab-bar">
+            <button class="tab active" data-tab="reg">Registration</button>
+            <button class="tab" data-tab="checkin">Checkin</button>
+            <button class="tab" data-tab="config">Config</button>
+            <button class="tab" data-tab="tito">TITO</button>
+            <button class="tab" data-tab="card">Card</button>
+            <button class="tab" data-tab="pcs">PCS</button>
+            <button class="tab" data-tab="bonus">Bonus</button>
+            <button class="tab" data-tab="eft">EFT</button>
+            <button class="tab" data-tab="gat">GAT</button>
+            <button class="tab" data-tab="handpay">Handpay</button>
+            <button class="tab" data-tab="wat">WAT</button>
+            <button class="tab" data-tab="meters">Meters</button>
+            <button class="tab" data-tab="rg">RG</button>
+            <button class="tab" data-tab="progress">Progress</button>
+            <button class="tab" data-tab="cardless">Cardless</button>
+            <button class="tab" data-tab="aml">AML</button>
+            <button class="tab" data-tab="ism">Random Riches</button>
+            <button class="tab" data-tab="download">Download</button>
+            <button class="tab" data-tab="diags">Diagnostics</button>
+            <button class="tab" data-tab="events">Events</button>
+            <button class="tab" data-tab="marker">Marker</button>
+        </div>
+
+        <div class="tab-content" id="tab-content">
+            <!-- TITO Tab -->
+            <section class="tab-panel" id="panel-tito">
+                <h2>TITO Service</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>Validation</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="tito-respond-validation" checked> Respond to Validation</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Seed Value 1:</label>
+                            <input type="number" id="tito-seed1" value="12345">
+                        </div>
+                        <div class="control-group">
+                            <label>Seed Value 2:</label>
+                            <input type="number" id="tito-seed2" value="67890">
+                        </div>
+                        <div class="control-group">
+                            <label>ID Count:</label>
+                            <input type="number" id="tito-id-count" value="10">
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <h3>Issue</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="tito-respond-issue" checked> Respond to Issue</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Issue Status:</label>
+                            <select id="tito-issue-status">
+                                <option value="0">Success</option>
+                                <option value="1">Pending</option>
+                                <option value="2">Rejected</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <h3>Commit</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="tito-respond-commit" checked> Respond to Commit</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Transaction ID (override):</label>
+                            <input type="number" id="tito-txn-id" value="">
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <h3>Redeem</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="tito-respond-redeem" checked> Respond to Redeem</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Redeem Status:</label>
+                            <select id="tito-redeem-status">
+                                <option value="0">Approved</option>
+                                <option value="1">Pending</option>
+                                <option value="2">Rejected</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label>Amount Override:</label>
+                            <input type="number" id="tito-redeem-amount" value="0">
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveTitoState()">Save TITO Settings</button>
+            </section>
+
+            <!-- Card Tab -->
+            <section class="tab-panel" id="panel-card">
+                <h2>Card Service</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>Card Settings</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="card-respond-in" checked> Respond to Card In</label>
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="card-respond-out" checked> Respond to Card Out</label>
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="card-respond-pin" checked> Respond to PIN Validation</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Player Card #:</label>
+                            <input type="text" id="card-number" value="1234567890">
+                        </div>
+                        <div class="control-group">
+                            <label>Player Name:</label>
+                            <input type="text" id="card-player-name" value="Test Player">
+                        </div>
+                        <div class="control-group">
+                            <label>PIN Result:</label>
+                            <select id="card-pin-result">
+                                <option value="0">Success</option>
+                                <option value="1">Failed</option>
+                                <option value="2">Locked</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveCardState()">Save Card Settings</button>
+            </section>
+
+            <!-- PCS Tab -->
+            <section class="tab-panel" id="panel-pcs">
+                <h2>Player Card Service (PCS)</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>Player Balances</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="pcs-respond" checked> Respond to PCS</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Points Balance:</label>
+                            <input type="number" id="pcs-points" value="5000">
+                        </div>
+                        <div class="control-group">
+                            <label>Cashback Balance:</label>
+                            <input type="number" id="pcs-cashback" value="2500">
+                        </div>
+                        <div class="control-group">
+                            <label>Session Limit:</label>
+                            <input type="number" id="pcs-session-limit" value="0">
+                        </div>
+                        <div class="control-group">
+                            <label>Time Limit:</label>
+                            <input type="number" id="pcs-time-limit" value="0">
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="savePcsState()">Save PCS Settings</button>
+            </section>
+
+            <!-- Bonus Tab -->
+            <section class="tab-panel" id="panel-bonus">
+                <h2>Bonus Service</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>Bonus Settings</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="bonus-respond" checked> Respond to Bonus</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Bonus Amount:</label>
+                            <input type="number" id="bonus-amount" value="1000">
+                        </div>
+                        <div class="control-group">
+                            <label>Multiplier:</label>
+                            <input type="number" id="bonus-multiplier" value="1">
+                        </div>
+                        <div class="control-group">
+                            <label>Level IDs (comma-separated):</label>
+                            <input type="text" id="bonus-levels" value="1,2,3">
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveBonusState()">Save Bonus Settings</button>
+            </section>
+
+            <!-- EFT Tab -->
+            <section class="tab-panel" id="panel-eft">
+                <h2>Electronic Fund Transfer (EFT)</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>EFT Settings</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="eft-respond" checked> Respond to EFT</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Transfer Status:</label>
+                            <select id="eft-status">
+                                <option value="0">Success</option>
+                                <option value="1">Failed</option>
+                                <option value="2">Insufficient Funds</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label>Available Balance:</label>
+                            <input type="number" id="eft-balance" value="100000">
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveEftState()">Save EFT Settings</button>
+            </section>
+
+            <!-- GAT Tab -->
+            <section class="tab-panel" id="panel-gat">
+                <h2>Gaming Authority Terminal (GAT)</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>GAT Settings</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="gat-respond" checked> Respond to GAT</label>
+                        </div>
+                        <div class="control-group">
+                            <label>GAT Status:</label>
+                            <select id="gat-status">
+                                <option value="0">Success</option>
+                                <option value="1">Failed</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label>Component Hash:</label>
+                            <input type="text" id="gat-hash" value="ABCDEF1234567890">
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveGatState()">Save GAT Settings</button>
+            </section>
+
+            <!-- Handpay Tab -->
+            <section class="tab-panel" id="panel-handpay">
+                <h2>Handpay Service</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>Handpay Settings</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="hp-respond" checked> Respond to Handpay</label>
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="hp-auto-keyoff"> Auto Key-Off</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Key-Off Type:</label>
+                            <select id="hp-keyoff-type">
+                                <option value="0">To Credit Meter</option>
+                                <option value="1">To Handpay</option>
+                                <option value="2">To Cashout Ticket</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label>Reset Amount:</label>
+                            <input type="number" id="hp-reset-amount" value="0">
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <h3>Actions</h3>
+                        <div class="control-group">
+                            <label>Amount:</label>
+                            <input type="number" id="hp-action-amount" value="0">
+                        </div>
+                        <button class="btn btn-warning" onclick="resetHandpay()">Reset Handpay</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveHandpayState()">Save Handpay Settings</button>
+            </section>
+
+            <!-- WAT Tab -->
+            <section class="tab-panel" id="panel-wat">
+                <h2>Wireless Account Transfer (WAT)</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>WAT Settings</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="wat-respond" checked> Respond to WAT</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Account ID:</label>
+                            <input type="text" id="wat-account-id" value="WAT001">
+                        </div>
+                        <div class="control-group">
+                            <label>Balance:</label>
+                            <input type="number" id="wat-balance" value="50000">
+                        </div>
+                        <div class="control-group">
+                            <label>Transfer Result:</label>
+                            <select id="wat-result">
+                                <option value="0">Success</option>
+                                <option value="1">Failed</option>
+                                <option value="2">Insufficient Funds</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <h3>Request Transfer</h3>
+                        <div class="control-group">
+                            <label>Amount:</label>
+                            <input type="number" id="wat-transfer-amount" value="1000">
+                        </div>
+                        <div class="control-group">
+                            <label>Direction:</label>
+                            <select id="wat-transfer-dir">
+                                <option value="0">To EGM</option>
+                                <option value="1">From EGM</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-success" onclick="requestWatTransfer()">Transfer</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveWatState()">Save WAT Settings</button>
+            </section>
+
+            <!-- Meters Tab -->
+            <section class="tab-panel" id="panel-meters">
+                <h2>Meters Service</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>Meter Events</h3>
+                        <div id="meter-events-list" class="event-list">No meter events received yet.</div>
+                    </div>
+                    <div class="panel">
+                        <h3>Actions</h3>
+                        <button class="btn btn-primary" onclick="requestMeters()">Request Meters</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Registration Tab -->
+            <section class="tab-panel active" id="panel-reg">
+                <h2>Registration Service</h2>
+                <div class="panel-scroll">
+                    <div class="panel">
+                        <h3>Known SMIBs</h3>
+                        <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:6px;">Tracks regSmibOnline events (passive cache)</p>
+                        <div id="reg-smib-list" style="font-family:monospace; font-size:0.8em; max-height:260px; overflow-y:auto;">
+                            <em>No SMIBs detected yet</em>
+                        </div>
+                        <button class="btn btn-secondary" onclick="refreshSmibList()" style="margin-top:6px;">Refresh</button>
+                    </div>
+                    <div class="panel panel-wide">
+                        <h3>Service Interfaces (Discovery)</h3>
+                        <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px;">
+                            <label><input type="checkbox" id="disc-iBonus" checked> iBonus</label>
+                            <label><input type="checkbox" id="disc-iRG" checked> iRG</label>
+                            <label><input type="checkbox" id="disc-iPCS" checked> iPCS</label>
+                            <label><input type="checkbox" id="disc-iDiags" checked> iDiags</label>
+                            <label><input type="checkbox" id="disc-iTito" checked> iTito</label>
+                            <label><input type="checkbox" id="disc-iWat" checked> iWat</label>
+                            <label><input type="checkbox" id="disc-iGat" checked> iGat</label>
+                            <label><input type="checkbox" id="disc-iMarker" checked> iMarker</label>
+                            <label><input type="checkbox" id="disc-iISM" checked> iISM</label>
+                            <label><input type="checkbox" id="disc-iPin" checked> iPin</label>
+                            <label><input type="checkbox" id="disc-iReg" checked> iReg</label>
+                            <label><input type="checkbox" id="disc-iAML" checked> iAML</label>
+                            <label><input type="checkbox" id="disc-iConfig" checked> iConfig</label>
+                            <label><input type="checkbox" id="disc-iEft" checked> iEft</label>
+                            <label><input type="checkbox" id="disc-iDownload" checked> iDownload</label>
+                            <label><input type="checkbox" id="disc-iPlayer" checked> iPlayer</label>
+                            <label><input type="checkbox" id="disc-iCardless" checked> iCardless</label>
+                            <label><input type="checkbox" id="disc-iHandpay" checked> iHandpay</label>
+                        </div>
+                        <div style="display:flex; gap:6px; margin-top:12px;">
+                            <button class="btn btn-primary" onclick="saveDiscoveryState()">Save</button>
+                            <button class="btn btn-warning" onclick="clearDiscoveryState()">Clear (All On)</button>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <h3>RPC Response</h3>
+                        <pre id="disc-response" style="max-height:300px; overflow:auto; background:#1e1e2e; padding:8px; border-radius:4px; font-size:0.85em; white-space:pre-wrap;"></pre>
+                        <div style="display:flex; gap:6px; margin-top:8px;">
+                            <button class="btn btn-success" onclick="discoveryGetAll()">Get All Service Interfaces</button>
+                            <button class="btn btn-primary" onclick="discoveryGetSelected()">Get Selected Interfaces</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Checkin Tab -->
+            <section class="tab-panel" id="panel-checkin">
+                <h2>Checkin Service (MA-Checkin)</h2>
+                <div class="panel-grid" id="checkin-panel">
+                    <div class="panel">
+                        <h3>Mode &amp; Target</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="reg-auto" checked onchange="toggleRegAuto()"> Auto Checkin</label>
+                        </div>
+                        <div class="control-group">
+                            <label>SMIB UID:</label>
+                            <select id="reg-uid" onchange="loadCheckinDefaults()"><option value="">-- select --</option></select>
+                        </div>
+                        <div class="control-group">
+                            <label>Or type:</label>
+                            <input type="text" id="reg-uid-text" placeholder="IGT_0000000100">
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <h3>Machine Identity</h3>
+                        <div class="control-group">
+                            <label>Machine Num:</label>
+                            <input type="number" id="reg-machine-num" value="100">
+                        </div>
+                        <div class="control-group">
+                            <label>Machine Loc:</label>
+                            <input type="text" id="reg-machine-loc" value="S01B0101">
+                        </div>
+                        <div class="control-group">
+                            <label>Site ID:</label>
+                            <input type="text" id="reg-site-id" value="1">
+                        </div>
+                        <div class="control-group">
+                            <label>Status:</label>
+                            <select id="reg-machine-status">
+                                <option value="A" selected>A - Active</option>
+                                <option value="I">I - Inactive</option>
+                                <option value="D">D - Disabled</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label>Report Denom:</label>
+                            <input type="number" id="reg-report-denom" value="0">
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <h3>Flags</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="reg-enabled" checked> Enabled</label>
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="reg-registered" checked> Registered</label>
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="reg-vip"> VIP</label>
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="reg-bonus-enabled"> Bonus Enabled</label>
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="reg-tito-enabled"> TITO Enabled</label>
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="reg-have-initial-meters"> Initial Meters</label>
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="reg-tpw-enabled"> True Player Win</label>
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="reg-mdmg-enabled"> MDMG</label>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <h3>Points &amp; Hot Player</h3>
+                        <div class="control-group">
+                            <label>Points Count:</label>
+                            <input type="number" id="reg-points-count" value="0">
+                        </div>
+                        <div class="control-group">
+                            <label>Points Award:</label>
+                            <input type="number" id="reg-points-award" value="0">
+                        </div>
+                        <div class="control-group">
+                            <label>HP Period:</label>
+                            <input type="number" id="reg-hp-period" value="0">
+                        </div>
+                        <div class="control-group">
+                            <label>HP Wagers:</label>
+                            <input type="number" id="reg-hp-wagers" value="0">
+                        </div>
+                        <div class="control-group">
+                            <label>HP Games:</label>
+                            <input type="number" id="reg-hp-games" value="0">
+                        </div>
+                        <div class="control-group">
+                            <label>HP Inactivity:</label>
+                            <input type="number" id="reg-hp-inactivity" value="0">
+                        </div>
+                        <div class="control-group">
+                            <label>Not Reg Reason:</label>
+                            <input type="text" id="reg-not-registered-reason" value="">
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-success" onclick="sendSetRegistration()">Send setRegistration</button>
+                <button class="btn btn-secondary" onclick="sendGetRegistration()" style="margin-left:6px;">Get Registration</button>
+
+                <h3 style="margin-top:24px; border-top:1px solid var(--border-color); padding-top:16px;">EGM Control (Floor Updates)</h3>
+                <div class="panel-scroll">
+                    <!-- EGM Control: Disable -->
+                    <div class="panel panel-medium">
+                        <h3>Disable EGM</h3>
+                        <div class="control-group">
+                            <label>Target SMIB UID:</label>
+                            <select id="disable-uid"><option value="">-- select --</option></select>
+                        </div>
+                        <div class="control-group">
+                            <label>Or type:</label>
+                            <input type="text" id="disable-uid-text" placeholder="IGT_0000000100">
+                        </div>
+                        <div class="control-group">
+                            <label>Disable Key:</label>
+                            <select id="disable-key">
+                                <option value="">-- select --</option>
+                                <option value="EGM_DENOM_ENABLE_DISABLE">EGM_DENOM_ENABLE_DISABLE</option>
+                                <option value="EGM_JACKPOT_ENABLE_DISABLE">EGM_JACKPOT_ENABLE_DISABLE</option>
+                                <option value="EGM_CASHLESS_ENABLE_DISABLE">EGM_CASHLESS_ENABLE_DISABLE</option>
+                                <option value="EGM_FLOOR_ENABLE_DISABLE">EGM_FLOOR_ENABLE_DISABLE</option>
+                                <option value="EGM_QUEUE_ENABLE_DISABLE">EGM_QUEUE_ENABLE_DISABLE</option>
+                                <option value="EGM_NET_ENABLE_DISABLE">EGM_NET_ENABLE_DISABLE</option>
+                                <option value="EGM_GAME_ENABLE_DISABLE">EGM_GAME_ENABLE_DISABLE</option>
+                                <option value="EGM_PAYTOCREDIT_ENABLE_DISABLE">EGM_PAYTOCREDIT_ENABLE_DISABLE</option>
+                                <option value="EGM_VPC_ENABLE_DISABLE">EGM_VPC_ENABLE_DISABLE</option>
+                                <option value="EGM_CRDLD_VERIFY_ENABLE_DISABLE">EGM_CRDLD_VERIFY_ENABLE_DISABLE</option>
+                                <option value="EGM_CLG_ENABLE_DISABLE">EGM_CLG_ENABLE_DISABLE</option>
+                                <option value="EGM_BILLTAX_ENABLE_DISABLE">EGM_BILLTAX_ENABLE_DISABLE</option>
+                                <option value="EGM_RG_ENABLE_DISABLE">EGM_RG_ENABLE_DISABLE</option>
+                                <option value="EGM_san_ENABLE_DISABLE">EGM_san_ENABLE_DISABLE</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="disable-state" checked> Disable (checked = disable, unchecked = enable)</label>
+                        </div>
+                        <div style="display:flex; gap:6px; margin-top:8px;">
+                            <button class="btn btn-warning" onclick="sendDisableEgm()">Send Disable/Enable</button>
+                            <button class="btn btn-secondary" onclick="getDisableKeys()">Get Keys</button>
+                        </div>
+                        <pre id="disable-response" style="max-height:150px; overflow:auto; background:#1e1e2e; padding:8px; border-radius:4px; font-size:0.8em; white-space:pre-wrap; margin-top:8px;"></pre>
+                    </div>
+
+                    <!-- EGM Control: Lock -->
+                    <div class="panel panel-medium">
+                        <h3>Lock EGM</h3>
+                        <div class="control-group">
+                            <label>Target SMIB UID:</label>
+                            <select id="lock-uid"><option value="">-- select --</option></select>
+                        </div>
+                        <div class="control-group">
+                            <label>Or type:</label>
+                            <input type="text" id="lock-uid-text" placeholder="IGT_0000000100">
+                        </div>
+                        <div class="control-group">
+                            <label>Lock Key:</label>
+                            <input type="text" id="lock-key" placeholder="e.g. LOCK_KEY_1">
+                        </div>
+                        <div class="control-group">
+                            <label>Timer (seconds):</label>
+                            <input type="number" id="lock-timer" value="0" min="0" style="max-width:100px;">
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="lock-state" checked> Lock (checked = lock, unchecked = unlock)</label>
+                        </div>
+                        <div style="display:flex; gap:6px; margin-top:8px;">
+                            <button class="btn btn-warning" onclick="sendLockEgm()">Send Lock/Unlock</button>
+                            <button class="btn btn-secondary" onclick="getLockKeys()">Get Keys</button>
+                        </div>
+                        <pre id="lock-response" style="max-height:150px; overflow:auto; background:#1e1e2e; padding:8px; border-radius:4px; font-size:0.8em; white-space:pre-wrap; margin-top:8px;"></pre>
+                    </div>
+
+                    <!-- EGM Control: Reset -->
+                    <div class="panel">
+                        <h3>Reset EGM</h3>
+                        <div class="control-group">
+                            <label>Target SMIB UID:</label>
+                            <select id="reset-uid"><option value="">-- select --</option></select>
+                        </div>
+                        <div class="control-group">
+                            <label>Or type:</label>
+                            <input type="text" id="reset-uid-text" placeholder="IGT_0000000100">
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="reset-hard"> Hard Reset (unchecked = soft reset)</label>
+                        </div>
+                        <div style="display:flex; gap:6px; margin-top:8px;">
+                            <button class="btn btn-danger" onclick="sendResetEgm()">Send Reset</button>
+                        </div>
+                        <pre id="reset-response" style="max-height:150px; overflow:auto; background:#1e1e2e; padding:8px; border-radius:4px; font-size:0.8em; white-space:pre-wrap; margin-top:8px;"></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RG Tab -->
+            <section class="tab-panel" id="panel-rg">
+                <h2>Responsible Gaming</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>RG Settings</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="rg-disable-card-out"> Disable on Card Out</label>
+                        </div>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="rg-lock-bv"> Lock Bill Validator</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Lease Minutes:</label>
+                            <input type="number" id="rg-lease" value="60">
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <h3>Actions</h3>
+                        <div class="control-group">
+                            <label>Device ID:</label>
+                            <input type="number" id="rg-device-id" value="1">
+                        </div>
+                        <button class="btn btn-warning" onclick="rgDisableOnCardOut()">Disable on Card Out</button>
+                        <button class="btn btn-success" onclick="rgEnableWithLease()">Enable with Lease</button>
+                        <button class="btn btn-danger" onclick="rgLockBV()">Lock BV</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveRgState()">Save RG Settings</button>
+            </section>
+
+            <!-- Progress Tab -->
+            <section class="tab-panel" id="panel-progress">
+                <h2>Progressive Events</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>Progressive Levels</h3>
+                        <div id="progress-levels">
+                            <div class="control-group"><label>Level 1 (Minor):</label><input type="number" id="prog-level-1" value="1000"></div>
+                            <div class="control-group"><label>Level 2 (Major):</label><input type="number" id="prog-level-2" value="5000"></div>
+                            <div class="control-group"><label>Level 3 (Grand):</label><input type="number" id="prog-level-3" value="25000"></div>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveProgressState()">Save Progress Settings</button>
+            </section>
+
+            <!-- Config Tab -->
+            <section class="tab-panel" id="panel-config">
+                <h2>Config Service (iConfig)</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>Target &amp; Category</h3>
+                        <div class="control-group">
+                            <label>SMIB UID:</label>
+                            <select id="conf-uid"><option value="">-- select --</option></select>
+                        </div>
+                        <div class="control-group">
+                            <label>Or type:</label>
+                            <input type="text" id="conf-uid-text" placeholder="IGT_0000000100">
+                        </div>
+                        <div class="control-group">
+                            <label>Category:</label>
+                            <select id="conf-category">
+                                <optgroup label="Core">
+                                    <option value="EgmSettings" selected>EgmSettings</option>
+                                    <option value="PlayerTracking">PlayerTracking</option>
+                                    <option value="PlayerSession">PlayerSession</option>
+                                    <option value="CurrencySettings">CurrencySettings</option>
+                                    <option value="Meters">Meters</option>
+                                    <option value="Logging">Logging</option>
+                                </optgroup>
+                                <optgroup label="Cashless">
+                                    <option value="TITO">TITO</option>
+                                    <option value="EftCashless">EftCashless</option>
+                                    <option value="MagCardCashless">MagCardCashless</option>
+                                    <option value="PointPlay">PointPlay</option>
+                                    <option value="XtraCredit">XtraCredit</option>
+                                    <option value="ReturnPlay">ReturnPlay</option>
+                                </optgroup>
+                                <optgroup label="Payments">
+                                    <option value="Handpay">Handpay</option>
+                                    <option value="BillInTax">BillInTax</option>
+                                    <option value="BillMeterMap">BillMeterMap</option>
+                                    <option value="FuzzyJackpot">FuzzyJackpot</option>
+                                </optgroup>
+                                <optgroup label="Bonus">
+                                    <option value="BonusSettings">BonusSettings</option>
+                                    <option value="BonusStrings">BonusStrings</option>
+                                    <option value="BonusLevel0">BonusLevel0</option>
+                                    <option value="BonusLevel1">BonusLevel1</option>
+                                    <option value="BonusLevel2">BonusLevel2</option>
+                                    <option value="BonusLevel3">BonusLevel3</option>
+                                </optgroup>
+                                <optgroup label="PCS &amp; Display">
+                                    <option value="PCS">PCS</option>
+                                    <option value="PCSStrings">PCSStrings</option>
+                                    <option value="ControlStrings">ControlStrings</option>
+                                </optgroup>
+                                <optgroup label="Other">
+                                    <option value="GameDisable">GameDisable</option>
+                                    <option value="Download">Download</option>
+                                    <option value="AML">AML</option>
+                                    <option value="FloorNet-General">FloorNet-General</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div style="display:flex; gap:6px; margin-top:8px;">
+                            <button class="btn btn-primary" onclick="getOptionList()">Get Options</button>
+                            <button class="btn btn-warning" onclick="getOptionListShort()">Get All Categories</button>
+                        </div>
+                    </div>
+                    <div class="panel opt-panel" style="grid-column: span 2;">
+                        <h3>Option Items</h3>
+                        <div class="opt-selector">
+                            <div class="control-group" style="flex:2;">
+                                <label>Option:</label>
+                                <select id="conf-option-select" style="width:100%;"><option value="">-- get options first --</option></select>
+                            </div>
+                            <div class="control-group" style="flex:2;">
+                                <label>Value:</label>
+                                <input type="text" id="conf-option-value" placeholder="value" disabled>
+                            </div>
+                        </div>
+                        <div id="conf-option-summary" class="opt-summary"></div>
+                        <div style="display:flex; gap:6px; margin-top:8px;">
+                            <button class="btn btn-success" onclick="setOptionChange()">Set Options</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+
+            <!-- Cardless Tab -->
+            <section class="tab-panel" id="panel-cardless">
+                <h2>Cardless Transfer</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>Cardless Settings</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="cardless-respond" checked> Respond to Cardless</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Nonce:</label>
+                            <input type="text" id="cardless-nonce" value="ABC123">
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveCardlessState()">Save Cardless Settings</button>
+            </section>
+
+            <!-- AML Tab -->
+            <section class="tab-panel" id="panel-aml">
+                <h2>Anti-Money Laundering (AML)</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>AML Settings</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="aml-respond" checked> Respond to AML</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Cash Aggregation Threshold:</label>
+                            <input type="number" id="aml-cash-threshold" value="10000">
+                        </div>
+                        <div class="control-group">
+                            <label>Session Threshold:</label>
+                            <input type="number" id="aml-session-threshold" value="5000">
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveAmlState()">Save AML Settings</button>
+            </section>
+
+            <!-- ISM / Random Riches Tab -->
+            <section class="tab-panel" id="panel-ism">
+                <h2>Random Riches (ISM)</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>ISM Settings</h3>
+                        <div class="control-group">
+                            <label><input type="checkbox" id="ism-respond" checked> Respond to ISM</label>
+                        </div>
+                        <div class="control-group">
+                            <label>Account Balance:</label>
+                            <input type="number" id="ism-balance" value="10000">
+                        </div>
+                        <div class="control-group">
+                            <label>Public Key:</label>
+                            <input type="text" id="ism-pubkey" value="RSA-PUB-KEY-PLACEHOLDER">
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveIsmState()">Save ISM Settings</button>
+            </section>
+
+            <!-- Download Tab -->
+            <section class="tab-panel" id="panel-download">
+                <h2>Download Service</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>Notify Download</h3>
+                        <div class="control-group">
+                            <label>Device ID:</label>
+                            <input type="number" id="dl-device-id" value="1">
+                        </div>
+                        <div class="control-group">
+                            <label>File Group:</label>
+                            <input type="text" id="dl-filegroup" value="">
+                        </div>
+                        <div class="control-group">
+                            <label>URL:</label>
+                            <input type="text" id="dl-url" value="">
+                        </div>
+                        <button class="btn btn-success" onclick="notifyDownload()">Notify Download Ready</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Diagnostics Tab -->
+            <section class="tab-panel" id="panel-diags">
+                <h2>Diagnostics</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>Actions</h3>
+                        <div class="control-group">
+                            <label>Device ID:</label>
+                            <input type="number" id="diag-device-id" value="1">
+                        </div>
+                        <button class="btn btn-primary" onclick="runDiags()">Run Diagnostics</button>
+                        <button class="btn btn-warning" onclick="resetDiags()">Reset Diagnostics</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Events Tab -->
+            <section class="tab-panel" id="panel-events">
+                <h2>Audit Events</h2>
+                <div class="panel-grid">
+                    <div class="panel full-width">
+                        <h3>Recent Audit Events</h3>
+                        <div id="audit-events-list" class="event-list">No audit events received yet.</div>
+                        <button class="btn btn-primary" onclick="refreshAuditEvents()">Refresh</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Marker Tab -->
+            <section class="tab-panel" id="panel-marker">
+                <h2>Marker Service</h2>
+                <div class="panel-grid">
+                    <div class="panel">
+                        <h3>Marker Settings</h3>
+                        <div class="control-group">
+                            <label>Marker Balance:</label>
+                            <input type="number" id="marker-balance" value="0">
+                        </div>
+                        <div class="control-group">
+                            <label>Repay Result:</label>
+                            <select id="marker-repay-result">
+                                <option value="0">Success</option>
+                                <option value="1">Failed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <h3>Repay Marker</h3>
+                        <div class="control-group">
+                            <label>Amount:</label>
+                            <input type="number" id="marker-repay-amount" value="0">
+                        </div>
+                        <button class="btn btn-success" onclick="repayMarker()">Repay</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveMarkerState()">Save Marker Settings</button>
+            </section>
+        </div>
+    </main>
+
+    <!-- Message Log (bottom panel) -->
+    <section class="log-section" id="log-section">
+        <div class="log-header">
+            <h2>Message Log</h2>
+            <div class="log-controls">
+                <select id="log-filter">
+                    <option value="">All</option>
+                    <option value="RPC">RPC Only</option>
+                    <option value="EVT">Events Only</option>
+                    <option value="INFO">Info Only</option>
+                </select>
+                <label class="filter-toggle"><input type="checkbox" id="log-autoscroll" checked> Autoscroll</label>
+                <button class="btn btn-sm" onclick="clearLog()">Clear</button>
+            </div>
+        </div>
+        <div id="message-log" class="message-log"></div>
+    </section>
+
+    <!-- Response Detail Modal -->
+    <div id="detail-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="detail-modal-title">Message Detail</h2>
+                <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <pre id="detail-body"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js?v=15"></script>
+</body>
+</html>

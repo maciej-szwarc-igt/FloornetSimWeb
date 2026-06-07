@@ -1,0 +1,66 @@
+{
+  "Checkin": {
+    "SiteId": "1",
+    "MachineNum": 100,
+    "MachineLoc": "S01B0101",
+    "Enabled": true,
+    "Registered": true,
+    "NotRegisteredReason": null,
+    "Vip": false,
+    "ReportDenomId": 0,
+    "PointsCount": 0,
+    "PointsAward": 0,
+    "MachineStatus": "A",
+    "HaveInitialMeters": false,
+    "TitoEnabled": false,
+    "TruePlayerWinEnabled": false,
+    "MdmgEnabled": false,
+    "HotPlayerPeriod": 0,
+    "HotPlayerWagers": 0,
+    "HotPlayerGames": 0,
+    "HotPlayerInactivityTimer": 0,
+    "BonusEnabled": false,
+    "Machines": [
+      {
+        "Uid": "IGT_0000000100",
+        "SiteId": "1",
+        "MachineNum": 100,
+        "MachineLoc": "S01B0101"
+      }
+    ]
+  },
+  "DownloadService": {
+    "User": "",
+    "Password": "",
+    "IpAddress": "https://localhost:5003"
+  },
+  "Registration": {
+    "AutoRegister": true,
+    "Discovery": {
+      "CardlessInterface": true,
+      "EftInterface": true,
+      "AMLInterface": true,
+      "PlayerInterface": true,
+      "BonusInterface": true,
+      "DiagsInterface": true,
+      "GatInterface": true,
+      "ConfInterface": true,
+      "DownloadInterface": true,
+      "TitoInterface": true,
+      "PinInterface": true,
+      "MarkerInterface": true,
+      "RGInterface": true,
+      "RegInterface": true,
+      "HandpayInterface": true,
+      "PCSInterface": true,
+      "IsmInterface": true,
+      "WatInterface": true
+    }
+  },
+  "Features": {
+    "EnableCardService": true,
+    "EnableBonusMeters": true,
+    "EnableAuditEvents": true,
+    "EnableResponseView": true
+  }
+}
