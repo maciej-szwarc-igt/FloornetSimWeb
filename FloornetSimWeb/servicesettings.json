@@ -12,7 +12,7 @@
     "PointsAward": 0,
     "MachineStatus": "A",
     "HaveInitialMeters": false,
-    "TitoEnabled": false,
+    "TitoEnabled": true,
     "TruePlayerWinEnabled": false,
     "MdmgEnabled": false,
     "HotPlayerPeriod": 0,

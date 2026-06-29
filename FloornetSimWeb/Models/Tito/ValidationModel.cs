@@ -58,8 +58,17 @@ namespace IGT.FloorNet.Tools.ServiceSimulator.Models.Tito
 
         public void Clear()
         {
-            SeedValue1 = null;
-            SeedValue2 = null;
+            // Provide valid, non-null defaults so getValidationIds returns a valid
+            // response (IsValid == true) without manual UI configuration. This lets
+            // a System-validation cashout proceed end-to-end out of the box.
+            //
+            // These seed values mirror the production CMS golden reference
+            // (see c:\dev\config-exchange-reference.md: getValidationIdsResp
+            // seedValue1=49198, seedValue2=1457631). Using the production seeds here
+            // means a SecureEnhanced TITO cashout succeeds immediately after startup
+            // without a manual PUT /api/tito/state.
+            SeedValue1 = 49198L;
+            SeedValue2 = 1457631L;
             SeedDateTime = DateTime.UtcNow;
             ValidationIds = null;
         }

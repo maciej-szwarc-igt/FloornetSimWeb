@@ -99,6 +99,7 @@ namespace IGT.FloorNet.Tools.ServiceSimulator
         public static iMeters _iMeters;
         public static iConfig _iConfig;
         public static iDownload _iDownload;
+        public static iDiags _iDiags;
         public static iAML _iAML;
         public static iPCS _iPCS;
         //public static IMessageBusRpcProxy _imessageBusRpcProxy;
@@ -213,6 +214,15 @@ namespace IGT.FloorNet.Tools.ServiceSimulator
             services.AddSingleton(config);
             services.AddSingleton<ResponseViewModel>();
             services.AddSingleton<SmibRegistrationTracker>();
+            // SQLite-backed persistence for events, cashouts, and meters (cross-platform, no server).
+            services.AddSingleton<IGT.FloorNet.Tools.ServiceSimulator.Services.SimDbStore>();
+            services.AddSingleton<IGT.FloorNet.Tools.ServiceSimulator.Services.SimFeatureState>();
+            // TITO host-side publishers. The SMIB BE2 firmware (tito.c) only requests validation
+            // IDs while its TITO_HeartbeatTimeout is in the future, which is refreshed exclusively
+            // by the FloorNet "voucherHeartbeat" event; "voucherConfig" carries the SE-validation
+            // enable. Without these, the EGM loops forever raising SAS exception 0x57 on cashout.
+            services.AddSingleton<IGT.FloorNet.Tools.ServiceSimulator.ViewModels.Titio.VoucherHeartbeatPublisher>();
+            services.AddSingleton<IGT.FloorNet.Tools.ServiceSimulator.ViewModels.Titio.VoucherConfigPublisher>();
             services.AddRpcProxy<iAuthSub>(_rpcProxyConfig);
             services.AddRpcProxy<iBnsMgr>(_rpcProxyConfig);
             services.AddRpcProxy<iMeters>(_rpcProxyConfig);
@@ -271,6 +281,17 @@ namespace IGT.FloorNet.Tools.ServiceSimulator
             var rpcProxyConfig = new RpcProxyConfig { SiteId = "1" };
             services.AddRpcProxy<iDiags>(rpcProxyConfig);
 
+            // Reliability / background services (Phase 5):
+            //  - SmibOfflineDetectService: sweeps SmibRegistrationTracker and marks SMIBs offline
+            //    when keepAlive heartbeats stop.
+            //  - FloorUpdateService: drains an in-memory floor-update job queue (Jobs 2/19/25),
+            //    executing iReg.disableEGM / iRG.LockBV RPC paths against target SMIBs.
+            //  - MessageBusHealthService: recovers RabbitMQ consumers if the broker cancels them
+            //    after a delivery-ack timeout (PRECONDITION_FAILED), restoring RPC responsiveness
+            //    (e.g. iDiscovery.getAllServiceInterfaces) without a manual app restart.
+            services.AddHostedService<Services.SmibOfflineDetectService>();
+            services.AddHostedService<Services.FloorUpdateService>();
+            services.AddHostedService<Services.MessageBusHealthService>();
 
             return services;
         }
@@ -323,6 +344,7 @@ namespace IGT.FloorNet.Tools.ServiceSimulator
             _iConfig = services.GetRequiredService<iConfig>();
             _iSmibISM = services.GetRequiredService<iSmibISM>();
             _iDownload = services.GetRequiredService<iDownload>();
+            _iDiags = services.GetRequiredService<iDiags>();
             _iAML = services.GetRequiredService<iAML>();
             _iPCS = services.GetRequiredService<iPCS>();
 
@@ -461,6 +483,14 @@ namespace IGT.FloorNet.Tools.ServiceSimulator
             messageBus.RegisterRpcProxy<iConfig>();
             messageBus.RegisterRpcProxy<iEft>();            
             messageBus.StartConsumer();
+
+            // Start the TITO host-side publishers now that the bus consumer is running.
+            // VoucherHeartbeatPublisher keeps the SMIB's TITO_HeartbeatTimeout alive (every 10s);
+            // VoucherConfigPublisher enables Secure-Enhanced validation (every 30s). Both are
+            // required for the SMIB to fire EVT_NEED_VALIDATION_ID -> iTito.getValidationIds, which
+            // delivers SAS LP 57/58 to the EGM and stops the repeating exception-0x57 cashout loop.
+            services.GetRequiredService<IGT.FloorNet.Tools.ServiceSimulator.ViewModels.Titio.VoucherHeartbeatPublisher>().Start();
+            services.GetRequiredService<IGT.FloorNet.Tools.ServiceSimulator.ViewModels.Titio.VoucherConfigPublisher>().Start();
         }
 
         public static void StartWebServer(this IServiceProvider services)

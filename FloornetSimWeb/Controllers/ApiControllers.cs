@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Linq;
+using System.Globalization;
+using System.Text.Json;
 using IGT.FloorNet.MessageBus.Rpc;
 using IGT.FloorNet.Tools.ServiceSimulator;
 using IGT.FloorNet.Tools.ServiceSimulator.Services;
@@ -74,25 +76,92 @@ public class TitoApiController : ControllerBase
     private readonly IssueViewModel _issue;
     private readonly CommitViewModel _commit;
     private readonly RedeemViewModel _redeem;
+    private readonly SimFeatureState _sim;
 
-    public TitoApiController(ValidationViewModel v, IssueViewModel i, CommitViewModel c, RedeemViewModel r)
-    { _validation = v; _issue = i; _commit = c; _redeem = r; }
+    public TitoApiController(ValidationViewModel v, IssueViewModel i, CommitViewModel c, RedeemViewModel r, SimFeatureState sim)
+    { _validation = v; _issue = i; _commit = c; _redeem = r; _sim = sim; }
 
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new
+    public IActionResult GetState()
     {
-        Validation = new { _validation.Model.RespondToRPC, _validation.Model.SeedValue1, _validation.Model.SeedValue2, _validation.Model.IsValid },
-        Issue = new { _issue.Model.RespondToRPC },
-        Commit = new { _commit.Model.RespondToRPC, _commit.Model.TransactionId },
-        Redeem = new { _redeem.Model.RespondToRPC }
-    });
+        var extra = _sim.Get("tito");
+        return Ok(new
+        {
+            respondToValidation = _validation.Model.RespondToRPC,
+            seedValue1 = _validation.Model.SeedValue1,
+            seedValue2 = _validation.Model.SeedValue2,
+            validationIdCount = extra.TryGetValue("validationIdCount", out var vic) ? vic : null,
+            respondToIssue = _issue.Model.RespondToRPC,
+            issueStatus = extra.TryGetValue("issueStatus", out var iss) ? iss : null,
+            respondToCommit = _commit.Model.RespondToRPC,
+            transactionId = _commit.Model.TransactionId,
+            respondToRedeem = _redeem.Model.RespondToRPC,
+            redeemStatus = extra.TryGetValue("redeemStatus", out var rs) ? rs : null,
+            redeemAmount = _redeem.Model.VoucherAmount
+        });
+    }
+
+    [HttpPut("state")]
+    public IActionResult UpdateState([FromBody] Dictionary<string, object?> u)
+    {
+        if (u.TryGetValue("respondToValidation", out var rv)) _validation.Model.RespondToRPC = ToBool(rv);
+        if (u.TryGetValue("seedValue1", out var s1) && s1 is not null) _validation.Model.SeedValue1 = ToInt64(s1);
+        if (u.TryGetValue("seedValue2", out var s2) && s2 is not null) _validation.Model.SeedValue2 = ToInt64(s2);
+        if (u.TryGetValue("respondToIssue", out var ri)) _issue.Model.RespondToRPC = ToBool(ri);
+        if (u.TryGetValue("respondToCommit", out var rc)) _commit.Model.RespondToRPC = ToBool(rc);
+        if (u.TryGetValue("transactionId", out var tid) && tid is not null) _commit.Model.TransactionId = ToInt64(tid);
+        if (u.TryGetValue("respondToRedeem", out var rr)) _redeem.Model.RespondToRPC = ToBool(rr);
+        if (u.TryGetValue("redeemAmount", out var ra) && ra is not null) _redeem.Model.VoucherAmount = ToInt64(ra);
+
+        // Fields with no model home are retained in-memory for round-trip.
+        var extra = new Dictionary<string, object?>();
+        if (u.TryGetValue("validationIdCount", out var vic)) extra["validationIdCount"] = vic;
+        if (u.TryGetValue("issueStatus", out var iss)) extra["issueStatus"] = iss;
+        if (u.TryGetValue("redeemStatus", out var rs)) extra["redeemStatus"] = rs;
+        if (extra.Count > 0) _sim.Set("tito", extra);
+
+        return GetState();
+    }
 
     [HttpPut("validation")]
     public IActionResult UpdateValidation([FromBody] Dictionary<string, object> update)
     {
-        if (update.ContainsKey("respondToRPC")) _validation.Model.RespondToRPC = Convert.ToBoolean(update["respondToRPC"]);
+        if (update.ContainsKey("respondToRPC")) _validation.Model.RespondToRPC = ToBool(update["respondToRPC"]);
         return Ok(new { message = "Updated" });
     }
+
+    // System.Text.Json deserializes Dictionary<string, object?> values as JsonElement,
+    // which is not IConvertible. These helpers coerce JsonElement (or primitive/string) safely.
+    private static bool ToBool(object? value) => value switch
+    {
+        null => false,
+        bool b => b,
+        JsonElement je => je.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Number => je.GetInt64() != 0,
+            JsonValueKind.String => bool.TryParse(je.GetString(), out var pb) && pb,
+            _ => false
+        },
+        string s => bool.TryParse(s, out var pb) && pb,
+        _ => Convert.ToBoolean(value, CultureInfo.InvariantCulture)
+    };
+
+    private static long ToInt64(object? value) => value switch
+    {
+        null => 0L,
+        long l => l,
+        int i => i,
+        JsonElement je => je.ValueKind switch
+        {
+            JsonValueKind.Number => je.GetInt64(),
+            JsonValueKind.String => long.Parse(je.GetString()!, CultureInfo.InvariantCulture),
+            _ => 0L
+        },
+        string s => long.Parse(s, CultureInfo.InvariantCulture),
+        _ => Convert.ToInt64(value, CultureInfo.InvariantCulture)
+    };
 }
 
 [ApiController]
@@ -100,10 +169,46 @@ public class TitoApiController : ControllerBase
 public class CardApiController : ControllerBase
 {
     private readonly CardViewModel _card;
-    public CardApiController(CardViewModel card) { _card = card; }
+    private readonly SimFeatureState _sim;
+    public CardApiController(CardViewModel card, SimFeatureState sim) { _card = card; _sim = sim; }
 
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new { _card.EnableCardService });
+    public IActionResult GetState()
+    {
+        var cardIn = IGT.FloorNet.Tools.ServiceSimulator.ViewModels.Card.iPlayer.CardInViewModel.CardInModel;
+        var cardOut = IGT.FloorNet.Tools.ServiceSimulator.ViewModels.Card.iPlayer.PlayerCardOutViewModel.PlayerCardOutModel;
+        var pin = IGT.FloorNet.Tools.ServiceSimulator.ViewModels.Card.iPin.ValidatePinViewModel.ValidatePinModel;
+        var extra = _sim.Get("card");
+        return Ok(new
+        {
+            _card.EnableCardService,
+            respondToCardIn = cardIn.RespondToRPC,
+            respondToCardOut = cardOut.RespondToRPC,
+            respondToPinValidation = pin.RespondToRPC,
+            playerCardNumber = extra.TryGetValue("playerCardNumber", out var pcn) ? pcn : null,
+            playerName = cardIn.FirstName,
+            pinValidationResult = pin.IsValidPin
+        });
+    }
+
+    [HttpPut("state")]
+    public IActionResult UpdateState([FromBody] Dictionary<string, object?> u)
+    {
+        var cardIn = IGT.FloorNet.Tools.ServiceSimulator.ViewModels.Card.iPlayer.CardInViewModel.CardInModel;
+        var cardOut = IGT.FloorNet.Tools.ServiceSimulator.ViewModels.Card.iPlayer.PlayerCardOutViewModel.PlayerCardOutModel;
+        var pin = IGT.FloorNet.Tools.ServiceSimulator.ViewModels.Card.iPin.ValidatePinViewModel.ValidatePinModel;
+
+        if (u.TryGetValue("respondToCardIn", out var rci)) cardIn.RespondToRPC = Convert.ToBoolean(rci);
+        if (u.TryGetValue("respondToCardOut", out var rco)) cardOut.RespondToRPC = Convert.ToBoolean(rco);
+        if (u.TryGetValue("respondToPinValidation", out var rpv)) pin.RespondToRPC = Convert.ToBoolean(rpv);
+        if (u.TryGetValue("playerName", out var pn) && pn is not null) cardIn.FirstName = pn.ToString();
+        if (u.TryGetValue("pinValidationResult", out var pvr)) pin.IsValidPin = Convert.ToBoolean(pvr);
+
+        // No model home for the player card number on the response side.
+        if (u.TryGetValue("playerCardNumber", out var pcn)) _sim.Set("card", "playerCardNumber", pcn);
+
+        return GetState();
+    }
 }
 
 [ApiController]
@@ -111,10 +216,35 @@ public class CardApiController : ControllerBase
 public class BonusApiController : ControllerBase
 {
     private readonly BonusViewModel _bonus;
-    public BonusApiController(BonusViewModel bonus) { _bonus = bonus; }
+    private readonly SimFeatureState _sim;
+    public BonusApiController(BonusViewModel bonus, SimFeatureState sim) { _bonus = bonus; _sim = sim; }
 
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new { message = "Bonus Service active" });
+    public IActionResult GetState()
+    {
+        var m = IBonusViewModel.IBonusModel;
+        var extra = _sim.Get("bonus");
+        return Ok(new
+        {
+            respondToBonus = m.RespondToRPC,
+            bonusAmount = extra.TryGetValue("bonusAmount", out var ba) ? ba : null,
+            bonusMultiplier = extra.TryGetValue("bonusMultiplier", out var bm) ? bm : null,
+            levelIds = extra.TryGetValue("levelIds", out var li) ? li : null
+        });
+    }
+
+    [HttpPut("state")]
+    public IActionResult UpdateState([FromBody] Dictionary<string, object?> u)
+    {
+        if (u.TryGetValue("respondToBonus", out var rb)) IBonusViewModel.IBonusModel.RespondToRPC = Convert.ToBoolean(rb);
+        // bonusAmount/bonusMultiplier/levelIds are RPC parameters, not response-control model fields.
+        var extra = new Dictionary<string, object?>();
+        if (u.TryGetValue("bonusAmount", out var ba)) extra["bonusAmount"] = ba;
+        if (u.TryGetValue("bonusMultiplier", out var bm)) extra["bonusMultiplier"] = bm;
+        if (u.TryGetValue("levelIds", out var li)) extra["levelIds"] = li;
+        if (extra.Count > 0) _sim.Set("bonus", extra);
+        return GetState();
+    }
 }
 
 [ApiController]
@@ -122,10 +252,33 @@ public class BonusApiController : ControllerBase
 public class EftApiController : ControllerBase
 {
     private readonly IEftViewModel _eft;
-    public EftApiController(IEftViewModel eft) { _eft = eft; }
+    private readonly SimFeatureState _sim;
+    public EftApiController(IEftViewModel eft, SimFeatureState sim) { _eft = eft; _sim = sim; }
 
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new { message = "EFT Service active" });
+    public IActionResult GetState()
+    {
+        var m = IEftViewModel.IEftModel;
+        var extra = _sim.Get("eft");
+        return Ok(new
+        {
+            respondToEft = m.RespondToRPC,
+            transferStatus = m.HostException.ToString(),
+            availableBalance = m.AuthCashableAmt
+        });
+    }
+
+    [HttpPut("state")]
+    public IActionResult UpdateState([FromBody] Dictionary<string, object?> u)
+    {
+        var m = IEftViewModel.IEftModel;
+        if (u.TryGetValue("respondToEft", out var re)) m.RespondToRPC = Convert.ToBoolean(re);
+        if (u.TryGetValue("transferStatus", out var ts) && ts is not null
+            && Enum.TryParse<IGT.FloorNet.EX.Wat.t_watException>(ts.ToString(), true, out var ex))
+            m.HostException = ex;
+        if (u.TryGetValue("availableBalance", out var ab) && ab is not null) m.AuthCashableAmt = Convert.ToInt64(ab);
+        return GetState();
+    }
 }
 
 [ApiController]
@@ -133,10 +286,33 @@ public class EftApiController : ControllerBase
 public class GatApiController : ControllerBase
 {
     private readonly IGatViewModel _gat;
-    public GatApiController(IGatViewModel gat) { _gat = gat; }
+    private readonly SimFeatureState _sim;
+    public GatApiController(IGatViewModel gat, SimFeatureState sim) { _gat = gat; _sim = sim; }
 
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new { message = "GAT Service active" });
+    public IActionResult GetState()
+    {
+        var m = IGatViewModel.IGatModel;
+        var extra = _sim.Get("gat");
+        return Ok(new
+        {
+            respondToGat = m.RespondToRPC,
+            gatStatus = extra.TryGetValue("gatStatus", out var gs) ? gs : null,
+            componentHash = extra.TryGetValue("componentHash", out var ch) ? ch : null
+        });
+    }
+
+    [HttpPut("state")]
+    public IActionResult UpdateState([FromBody] Dictionary<string, object?> u)
+    {
+        if (u.TryGetValue("respondToGat", out var rg)) IGatViewModel.IGatModel.RespondToRPC = Convert.ToBoolean(rg);
+        // gatStatus/componentHash have no single model field (GAT uses per-component pass/fail).
+        var extra = new Dictionary<string, object?>();
+        if (u.TryGetValue("gatStatus", out var gs)) extra["gatStatus"] = gs;
+        if (u.TryGetValue("componentHash", out var ch)) extra["componentHash"] = ch;
+        if (extra.Count > 0) _sim.Set("gat", extra);
+        return GetState();
+    }
 }
 
 [ApiController]
@@ -144,10 +320,56 @@ public class GatApiController : ControllerBase
 public class HandpayApiController : ControllerBase
 {
     private readonly HandPayViewModel _hp;
-    public HandpayApiController(HandPayViewModel hp) { _hp = hp; }
+    private readonly SimFeatureState _sim;
+    public HandpayApiController(HandPayViewModel hp, SimFeatureState sim) { _hp = hp; _sim = sim; }
 
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new { message = "Handpay Service active" });
+    public IActionResult GetState()
+    {
+        var m = HandPayViewModel.HandPayResponseModel;
+        var extra = _sim.Get("handpay");
+        return Ok(new
+        {
+            respondToHandpay = m.RespondToRPC,
+            identity = m.Identity,
+            pouchPayEnable = m.PouchPayEnable,
+            keyToCreditEnable = m.KeyToCreditEnable,
+            selfServeOption = m.SelfServeOption.ToString(),
+            autoKeyOff = extra.TryGetValue("autoKeyOff", out var ako) ? ako : null,
+            keyOffType = extra.TryGetValue("keyOffType", out var kot) ? kot : null,
+            resetAmount = extra.TryGetValue("resetAmount", out var ra) ? ra : null
+        });
+    }
+
+    [HttpPut("state")]
+    public IActionResult UpdateState([FromBody] Dictionary<string, object?> u)
+    {
+        var m = HandPayViewModel.HandPayResponseModel;
+        if (u.TryGetValue("respondToHandpay", out var rh) && rh is not null) m.RespondToRPC = Convert.ToBoolean(rh);
+        if (u.TryGetValue("keyToCreditEnable", out var kc) && kc is not null) m.KeyToCreditEnable = Convert.ToBoolean(kc);
+        if (u.TryGetValue("pouchPayEnable", out var pp) && pp is not null) m.PouchPayEnable = Convert.ToBoolean(pp);
+
+        // autoKeyOff/keyOffType/resetAmount have no direct model home; retain in-memory.
+        var extra = new Dictionary<string, object?>();
+        foreach (var key in new[] { "autoKeyOff", "keyOffType", "resetAmount" })
+        {
+            if (u.TryGetValue(key, out var v)) extra[key] = v;
+        }
+        if (extra.Count > 0) _sim.Set("handpay", extra);
+        return GetState();
+    }
+
+    [HttpPost("reset")]
+    public IActionResult Reset([FromBody] Dictionary<string, object?>? u)
+    {
+        // Handpay reset is local model state (no outbound RPC); clear the response model
+        // and increment the identity sequence so the next response uses a fresh PK.
+        var m = HandPayViewModel.HandPayResponseModel;
+        m.Clear();
+        m.IncrementIdentityPK();
+        if (u is not null && u.TryGetValue("amount", out var amt)) _sim.Set("handpay", "resetAmount", amt);
+        return GetState();
+    }
 }
 
 [ApiController]
@@ -155,10 +377,81 @@ public class HandpayApiController : ControllerBase
 public class WatApiController : ControllerBase
 {
     private readonly RequestTransferViewModel _wat;
-    public WatApiController(RequestTransferViewModel wat) { _wat = wat; }
+    private readonly ResponseViewModel _response;
+    private readonly SimFeatureState _sim;
+    public WatApiController(RequestTransferViewModel wat, ResponseViewModel response, SimFeatureState sim) { _wat = wat; _response = response; _sim = sim; }
 
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new { message = "WAT Service active" });
+    public IActionResult GetState()
+    {
+        var extra = _sim.Get("wat");
+        return Ok(new
+        {
+            respondToWat = _wat.RpcProcess,
+            accountId = extra.TryGetValue("accountId", out var a) ? a : null,
+            watBalance = extra.TryGetValue("watBalance", out var b) ? b : null,
+            transferResult = extra.TryGetValue("transferResult", out var t) ? t : null
+        });
+    }
+
+    [HttpPut("state")]
+    public IActionResult UpdateState([FromBody] Dictionary<string, object?> u)
+    {
+        if (u.TryGetValue("respondToWat", out var rw) && rw is not null) _wat.RpcProcess = Convert.ToBoolean(rw);
+
+        var extra = new Dictionary<string, object?>();
+        foreach (var key in new[] { "accountId", "watBalance", "transferResult" })
+        {
+            if (u.TryGetValue(key, out var v)) extra[key] = v;
+        }
+        if (extra.Count > 0) _sim.Set("wat", extra);
+        return GetState();
+    }
+
+    [HttpPost("transfer")]
+    public async Task<IActionResult> Transfer([FromBody] WatTransferRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Uid))
+            return BadRequest(new { error = "uid is required" });
+
+        var m = RequestTransferViewModel.RequestTransferModel;
+        // Accept either the enum name ("from_EGM"/"to_EGM") or the numeric form
+        // sent by the WAT panel dropdown (0 = To EGM, 1 = From EGM).
+        var dir = (req.Direction ?? string.Empty).Trim();
+        var direction =
+            (string.Equals(dir, "from_EGM", StringComparison.OrdinalIgnoreCase) || dir == "1")
+                ? IGT.FloorNet.EX.Wat.t_transferDirection.from_EGM
+                : IGT.FloorNet.EX.Wat.t_transferDirection.to_EGM;
+
+        var requestId = string.IsNullOrWhiteSpace(m.RequestId) ? Guid.NewGuid().ToString() : m.RequestId;
+        var cardId = req.AccountId ?? m.CardId ?? string.Empty;
+
+        RpcProxyContext.Current = RpcProxyContext.ToSMIB(req.Uid);
+        var resp = await Startup._iSmibWat.requestTransfer(
+            requestId,
+            m.ResourceId ?? string.Empty,
+            cardId,
+            m.PlayerId,
+            m.CardInCount,
+            direction,
+            req.Amount,
+            m.ReqPromoAmt,
+            m.ReqNonCashAmt,
+            m.PrintTicket,
+            m.Jwt ?? string.Empty);
+
+        _response.LogRpcResponse($"requestTransfer({direction}, {req.Amount}) → {req.Uid}",
+            new { target = req.Uid, requestId, cardId, direction = direction.ToString(), amount = req.Amount }, resp, RpcCallContext.Current);
+        return Ok(resp);
+    }
+}
+
+public class WatTransferRequest
+{
+    public string Uid { get; set; } = string.Empty;
+    public long Amount { get; set; }
+    public string? Direction { get; set; }
+    public string? AccountId { get; set; }
 }
 
 [ApiController]
@@ -245,7 +538,7 @@ public class CheckinApiController : ControllerBase
             req.ReportDenomId,
             req.PointsCount,
             req.PointsAward,
-            CheckinDefaultsResolver.ToMachineStatusChar(req.MachineStatus),
+            string.IsNullOrEmpty(req.MachineStatus) ? 'A' : req.MachineStatus[0],
             req.HaveInitialMeters,
             req.TitoEnabled,
             req.TruePlayerWinEnabled,
@@ -307,8 +600,99 @@ public class RegStateRequest
 [Route("api/rg")]
 public class RgApiController : ControllerBase
 {
+    private readonly SimFeatureState _sim;
+    private readonly ResponseViewModel _response;
+    public RgApiController(SimFeatureState sim, ResponseViewModel response) { _sim = sim; _response = response; }
+
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new { message = "RG Service active" });
+    public IActionResult GetState()
+    {
+        var extra = _sim.Get("rg");
+        return Ok(new
+        {
+            respondToRg = extra.TryGetValue("respondToRg", out var rr) ? rr : null,
+            disableOnCardOut = extra.TryGetValue("disableOnCardOut", out var d) ? d : null,
+            lockBillValidator = extra.TryGetValue("lockBillValidator", out var l) ? l : null,
+            leaseMinutes = extra.TryGetValue("leaseMinutes", out var lm) ? lm : null
+        });
+    }
+
+    [HttpPut("state")]
+    public IActionResult UpdateState([FromBody] Dictionary<string, object?> u)
+    {
+        // RG is an outbound (to-SMIB) interface with no response-control model in this sim;
+        // retain configured flags in-memory so the UI round-trips. RG actions are POST endpoints.
+        var extra = new Dictionary<string, object?>();
+        foreach (var key in new[] { "respondToRg", "disableOnCardOut", "lockBillValidator", "leaseMinutes" })
+        {
+            if (u.TryGetValue(key, out var v)) extra[key] = v;
+        }
+        if (extra.Count > 0) _sim.Set("rg", extra);
+        return GetState();
+    }
+
+    [HttpPost("disable-on-card-out")]
+    public async Task<IActionResult> DisableOnCardOut([FromBody] RgDeviceRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.DeviceId))
+            return BadRequest(new { error = "deviceId is required" });
+
+        RpcProxyContext.Current = RpcProxyContext.ToSMIB(req.DeviceId);
+        var resp = await Startup._iRG.DisableEGMOnCardOut(true, req.DisableKey ?? string.Empty);
+        _response.LogRpcResponse($"DisableEGMOnCardOut(true) → {req.DeviceId}", new { target = req.DeviceId, disableKey = req.DisableKey }, resp, RpcCallContext.Current);
+        return Ok(resp);
+    }
+
+    [HttpPost("enable-with-lease")]
+    public async Task<IActionResult> EnableWithLease([FromBody] RgLeaseRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.DeviceId))
+            return BadRequest(new { error = "deviceId is required" });
+
+        var disableAt = DateTime.UtcNow.AddMinutes(req.LeaseMinutes);
+        RpcProxyContext.Current = RpcProxyContext.ToSMIB(req.DeviceId);
+        var resp = await Startup._iRG.EnableEGMwithLease(disableAt, req.DisableKey ?? string.Empty);
+        _response.LogRpcResponse($"EnableEGMwithLease(lease={req.LeaseMinutes}m, at={disableAt:o}) → {req.DeviceId}", new { target = req.DeviceId, leaseMinutes = req.LeaseMinutes, disableAt }, resp, RpcCallContext.Current);
+        return Ok(resp);
+    }
+
+    [HttpPost("lock-bv")]
+    public async Task<IActionResult> LockBv([FromBody] RgDeviceRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.DeviceId))
+            return BadRequest(new { error = "deviceId is required" });
+
+        RpcProxyContext.Current = RpcProxyContext.ToSMIB(req.DeviceId);
+        var resp = await Startup._iRG.LockBV(true, req.LockKey ?? string.Empty);
+        _response.LogRpcResponse($"LockBV(true) → {req.DeviceId}", new { target = req.DeviceId, lockKey = req.LockKey }, resp, RpcCallContext.Current);
+        return Ok(resp);
+    }
+
+    [HttpPost("lock-bv-keys")]
+    public async Task<IActionResult> LockBvKeys([FromBody] RgDeviceRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.DeviceId))
+            return BadRequest(new { error = "deviceId is required" });
+
+        RpcProxyContext.Current = RpcProxyContext.ToSMIB(req.DeviceId);
+        var resp = await Startup._iRG.GetLockBVKeys();
+        _response.LogRpcResponse($"GetLockBVKeys → {req.DeviceId}", new { target = req.DeviceId }, resp, RpcCallContext.Current);
+        return Ok(resp);
+    }
+}
+
+public class RgDeviceRequest
+{
+    public string DeviceId { get; set; } = string.Empty;
+    public string? LockKey { get; set; }
+    public string? DisableKey { get; set; }
+}
+
+public class RgLeaseRequest
+{
+    public string DeviceId { get; set; } = string.Empty;
+    public int LeaseMinutes { get; set; }
+    public string? DisableKey { get; set; }
 }
 
 [ApiController]
@@ -316,10 +700,27 @@ public class RgApiController : ControllerBase
 public class DiscoveryApiController : ControllerBase
 {
     private readonly DiscoveryViewModel _disc;
-    public DiscoveryApiController(DiscoveryViewModel disc) { _disc = disc; }
+    private readonly IGT.FloorNet.EX.Registration.iDiscovery _discovery;
+    public DiscoveryApiController(DiscoveryViewModel disc, IGT.FloorNet.EX.Registration.iDiscovery discovery)
+    {
+        _disc = disc;
+        _discovery = discovery;
+    }
 
     [HttpGet("state")]
     public IActionResult GetState() => Ok(new { _disc.DiscoveryModel });
+
+    [HttpGet("smib-interfaces")]
+    public async Task<IActionResult> GetSmibInterfaces([FromQuery] string uid)
+    {
+        if (string.IsNullOrWhiteSpace(uid))
+        {
+            return BadRequest(new { error = "uid is required" });
+        }
+
+        var resp = await _discovery.getSmibInterfaces(uid);
+        return Ok(resp);
+    }
 
     [HttpPut("state")]
     public IActionResult UpdateState([FromBody] Dictionary<string, bool> u)
@@ -359,22 +760,39 @@ public class DiscoveryApiController : ControllerBase
 public class AmlApiController : ControllerBase
 {
     private readonly AMLViewModel _aml;
-    public AmlApiController(AMLViewModel aml) { _aml = aml; }
+    private readonly SimFeatureState _sim;
+    public AmlApiController(AMLViewModel aml, SimFeatureState sim) { _aml = aml; _sim = sim; }
 
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new
+    public IActionResult GetState()
     {
-        _aml.DailyCashLimit,
-        _aml.DailyCashAggregate,
-        _aml.LargestBillDenom
-    });
+        var extra = _sim.Get("aml");
+        return Ok(new
+        {
+            _aml.DailyCashLimit,
+            _aml.DailyCashAggregate,
+            _aml.LargestBillDenom,
+            respondToAml = extra.TryGetValue("respondToAml", out var ra) ? ra : null,
+            cashAggregationThreshold = _aml.DailyCashLimit,
+            sessionThreshold = extra.TryGetValue("sessionThreshold", out var st) ? st : null
+        });
+    }
 
     [HttpPut("state")]
-    public IActionResult Update([FromBody] Dictionary<string, object> u)
+    public IActionResult Update([FromBody] Dictionary<string, object?> u)
     {
-        if (u.ContainsKey("dailyCashLimit")) _aml.DailyCashLimit = Convert.ToInt64(u["dailyCashLimit"]);
-        if (u.ContainsKey("largestBillDenom")) _aml.LargestBillDenom = Convert.ToInt64(u["largestBillDenom"]);
-        return Ok(new { message = "Updated" });
+        if (u.TryGetValue("dailyCashLimit", out var dcl) && dcl is not null) _aml.DailyCashLimit = Convert.ToInt64(dcl);
+        // cashAggregationThreshold maps onto the same DailyCashLimit when dailyCashLimit isn't sent
+        else if (u.TryGetValue("cashAggregationThreshold", out var cat) && cat is not null) _aml.DailyCashLimit = Convert.ToInt64(cat);
+        if (u.TryGetValue("largestBillDenom", out var lbd) && lbd is not null) _aml.LargestBillDenom = Convert.ToInt64(lbd);
+
+        // respondToAml/sessionThreshold have no model home; retain in-memory.
+        var extra = new Dictionary<string, object?>();
+        if (u.TryGetValue("respondToAml", out var ra)) extra["respondToAml"] = ra;
+        if (u.TryGetValue("sessionThreshold", out var st)) extra["sessionThreshold"] = st;
+        if (extra.Count > 0) _sim.Set("aml", extra);
+
+        return GetState();
     }
 }
 
@@ -383,10 +801,45 @@ public class AmlApiController : ControllerBase
 public class MetersApiController : ControllerBase
 {
     private readonly MetersSvcViewModel _meters;
-    public MetersApiController(MetersSvcViewModel meters) { _meters = meters; }
+    private readonly ResponseViewModel _response;
+    public MetersApiController(MetersSvcViewModel meters, ResponseViewModel response) { _meters = meters; _response = response; }
 
     [HttpGet("state")]
     public IActionResult GetState() => Ok(new { message = "Meters Service active" });
+
+    [HttpPost("request")]
+    public async Task<IActionResult> Request([FromBody] MetersRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Uid))
+            return BadRequest(new { error = "uid is required" });
+
+        var epochStart = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        long meterTime = (long)(DateTime.UtcNow - epochStart).TotalSeconds;
+        char meterType = string.IsNullOrEmpty(req.MeterType) ? 'A' : req.MeterType[0];
+
+        RpcProxyContext.Current = RpcProxyContext.ToSMIB(req.Uid);
+        var resp = await Startup._iMeters.getMeters(meterType, meterTime);
+        _response.LogRpcResponse($"getMeters('{meterType}') → {req.Uid}", new { target = req.Uid, meterType = meterType.ToString(), meterTime }, resp, RpcCallContext.Current);
+        return Ok(resp);
+    }
+
+    [HttpPost("mga-descriptions")]
+    public async Task<IActionResult> MgaDescriptions([FromBody] MetersRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Uid))
+            return BadRequest(new { error = "uid is required" });
+
+        RpcProxyContext.Current = RpcProxyContext.ToSMIB(req.Uid);
+        var resp = await Startup._iMeters.getMgaDescriptions();
+        _response.LogRpcResponse($"getMgaDescriptions → {req.Uid}", new { target = req.Uid }, resp, RpcCallContext.Current);
+        return Ok(resp);
+    }
+}
+
+public class MetersRequest
+{
+    public string Uid { get; set; } = string.Empty;
+    public string? MeterType { get; set; }
 }
 
 [ApiController]
@@ -482,10 +935,27 @@ public class ConfigOptionItem
 public class ProgressApiController : ControllerBase
 {
     private readonly ResponseViewModel _response;
-    public ProgressApiController(ResponseViewModel response) { _response = response; }
+    private readonly SimFeatureState _sim;
+    public ProgressApiController(ResponseViewModel response, SimFeatureState sim) { _response = response; _sim = sim; }
 
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new { _response.ProgressList });
+    public IActionResult GetState()
+    {
+        var extra = _sim.Get("progress");
+        return Ok(new
+        {
+            _response.ProgressList,
+            levels = extra.TryGetValue("levels", out var lv) ? lv : null
+        });
+    }
+
+    [HttpPut("state")]
+    public IActionResult UpdateState([FromBody] Dictionary<string, object?> u)
+    {
+        // Progressive levels are event-only; retain configured levels in-memory for the UI.
+        if (u.TryGetValue("levels", out var lv)) _sim.Set("progress", "levels", lv);
+        return GetState();
+    }
 }
 
 [ApiController]
@@ -493,10 +963,48 @@ public class ProgressApiController : ControllerBase
 public class DownloadApiController : ControllerBase
 {
     private readonly DownloadViewModel _dl;
-    public DownloadApiController(DownloadViewModel dl) { _dl = dl; }
+    private readonly ResponseViewModel _response;
+    public DownloadApiController(DownloadViewModel dl, ResponseViewModel response) { _dl = dl; _response = response; }
 
     [HttpGet("state")]
     public IActionResult GetState() => Ok(new { message = "Download Service active" });
+
+    [HttpPost("notify")]
+    public IActionResult Notify([FromBody] DownloadNotifyRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.DeviceId))
+            return BadRequest(new { error = "deviceId is required" });
+        if (string.IsNullOrWhiteSpace(req.Url))
+            return BadRequest(new { error = "url is required" });
+
+        var requestId = string.IsNullOrWhiteSpace(req.RequestId) ? Guid.NewGuid().ToString() : req.RequestId;
+        var fileName = string.IsNullOrWhiteSpace(req.FileName)
+            ? System.IO.Path.GetFileName(new Uri(req.Url, UriKind.RelativeOrAbsolute).IsAbsoluteUri ? new Uri(req.Url).AbsolutePath : req.Url)
+            : req.FileName;
+
+        RpcProxyContext.Current = RpcProxyContext.ToSMIB(req.DeviceId);
+        // addPackage is fire-and-forget (void) on the iDownload proxy.
+        Startup._iDownload.addPackage(req.Url, req.User ?? string.Empty, req.Password ?? string.Empty,
+            requestId, fileName, req.FileSize, req.Crc ?? string.Empty);
+
+        _response.LogRpcResponse($"addPackage({fileName}) → {req.DeviceId}",
+            new { target = req.DeviceId, url = req.Url, requestId, fileName, fileGroup = req.FileGroup },
+            new { queued = true }, RpcCallContext.Current);
+        return Ok(new { queued = true, requestId, fileName });
+    }
+}
+
+public class DownloadNotifyRequest
+{
+    public string DeviceId { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+    public string? FileGroup { get; set; }
+    public string? FileName { get; set; }
+    public string? RequestId { get; set; }
+    public string? User { get; set; }
+    public string? Password { get; set; }
+    public long FileSize { get; set; }
+    public string? Crc { get; set; }
 }
 
 [ApiController]
@@ -504,10 +1012,45 @@ public class DownloadApiController : ControllerBase
 public class DiagnosticsApiController : ControllerBase
 {
     private readonly DiagsViewModel _diags;
-    public DiagnosticsApiController(DiagsViewModel diags) { _diags = diags; }
+    private readonly ResponseViewModel _response;
+    public DiagnosticsApiController(DiagsViewModel diags, ResponseViewModel response) { _diags = diags; _response = response; }
 
     [HttpGet("state")]
     public IActionResult GetState() => Ok(new { message = "Diagnostics Service active" });
+
+    [HttpPost("run")]
+    public async Task<IActionResult> Run([FromBody] DiagnosticsRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Uid))
+            return BadRequest(new { error = "uid is required" });
+
+        RpcProxyContext.Current = RpcProxyContext.ToSMIB(req.Uid);
+        var resp = await Startup._iDiags.diagnostics();
+        _response.LogRpcResponse($"diagnostics → {req.Uid}", new { target = req.Uid }, resp, RpcCallContext.Current);
+        return Ok(resp);
+    }
+
+    [HttpPost("reset")]
+    public async Task<IActionResult> Reset([FromBody] DiagnosticsRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Uid))
+            return BadRequest(new { error = "uid is required" });
+
+        var resetType = req.Hard
+            ? IGT.FloorNet.EX.Diagnostics.t_resetTypes.hard
+            : IGT.FloorNet.EX.Diagnostics.t_resetTypes.soft;
+
+        RpcProxyContext.Current = RpcProxyContext.ToSMIB(req.Uid);
+        var resp = await Startup._iDiags.reset(resetType, 0);
+        _response.LogRpcResponse($"reset({resetType}) → {req.Uid}", new { target = req.Uid, resetType = resetType.ToString() }, resp, RpcCallContext.Current);
+        return Ok(resp);
+    }
+}
+
+public class DiagnosticsRequest
+{
+    public string Uid { get; set; } = string.Empty;
+    public bool Hard { get; set; }
 }
 
 [ApiController]
@@ -515,10 +1058,14 @@ public class DiagnosticsApiController : ControllerBase
 public class EventsApiController : ControllerBase
 {
     private readonly EventViewModel _events;
-    public EventsApiController(EventViewModel events) { _events = events; }
+    private readonly ResponseViewModel _response;
+    public EventsApiController(EventViewModel events, ResponseViewModel response) { _events = events; _response = response; }
 
     [HttpGet("state")]
     public IActionResult GetState() => Ok(new { message = "Events Service active" });
+
+    [HttpGet("audit")]
+    public IActionResult GetAudit() => Ok(new { log = _response.Model.Response ?? string.Empty });
 }
 
 [ApiController]
@@ -526,10 +1073,33 @@ public class EventsApiController : ControllerBase
 public class CardlessApiController : ControllerBase
 {
     private readonly GetNonceRespViewModel _cardless;
-    public CardlessApiController(GetNonceRespViewModel cardless) { _cardless = cardless; }
+    private readonly SimFeatureState _sim;
+    public CardlessApiController(GetNonceRespViewModel cardless, SimFeatureState sim) { _cardless = cardless; _sim = sim; }
 
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new { message = "Cardless Service active" });
+    public IActionResult GetState()
+    {
+        var m = GetNonceRespViewModel.NonceResponseModel;
+        return Ok(new
+        {
+            respondToCardless = m.RespondToRPC,
+            nonce = m.CustomNonce,
+            sendCustomNonce = m.SendCustomNonce
+        });
+    }
+
+    [HttpPut("state")]
+    public IActionResult UpdateState([FromBody] Dictionary<string, object?> u)
+    {
+        var m = GetNonceRespViewModel.NonceResponseModel;
+        if (u.TryGetValue("respondToCardless", out var rc)) m.RespondToRPC = Convert.ToBoolean(rc);
+        if (u.TryGetValue("nonce", out var n) && n is not null)
+        {
+            m.CustomNonce = Convert.ToInt64(n);
+            m.SendCustomNonce = true; // a supplied nonce only takes effect when this flag is set
+        }
+        return GetState();
+    }
 }
 
 [ApiController]
@@ -537,10 +1107,30 @@ public class CardlessApiController : ControllerBase
 public class IsmApiController : ControllerBase
 {
     private readonly AdjustAccountViewModel _ism;
-    public IsmApiController(AdjustAccountViewModel ism) { _ism = ism; }
+    private readonly SimFeatureState _sim;
+    public IsmApiController(AdjustAccountViewModel ism, SimFeatureState sim) { _ism = ism; _sim = sim; }
 
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new { message = "ISM/Random Riches Service active" });
+    public IActionResult GetState()
+    {
+        var s = _sim.Get("ism");
+        return Ok(new
+        {
+            respondToIsm = s.TryGetValue("respondToIsm", out var r) ? r : true,
+            accountBalance = s.TryGetValue("accountBalance", out var b) ? b : 0,
+            publicKey = s.TryGetValue("publicKey", out var k) ? k : string.Empty
+        });
+    }
+
+    [HttpPut("state")]
+    public IActionResult UpdateState([FromBody] Dictionary<string, object?> u)
+    {
+        // ISM response config has no direct desktop model property; persist to the in-memory feature bag.
+        if (u.TryGetValue("respondToIsm", out var r)) _sim.Set("ism", "respondToIsm", r);
+        if (u.TryGetValue("accountBalance", out var b)) _sim.Set("ism", "accountBalance", b);
+        if (u.TryGetValue("publicKey", out var k)) _sim.Set("ism", "publicKey", k);
+        return GetState();
+    }
 }
 
 [ApiController]
@@ -548,10 +1138,47 @@ public class IsmApiController : ControllerBase
 public class MarkerApiController : ControllerBase
 {
     private readonly MarkerViewModel _marker;
-    public MarkerApiController(MarkerViewModel marker) { _marker = marker; }
+    private readonly SimFeatureState _sim;
+    public MarkerApiController(MarkerViewModel marker, SimFeatureState sim) { _marker = marker; _sim = sim; }
 
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new { message = "Marker Service active" });
+    public IActionResult GetState()
+    {
+        var m = _marker.GetMarkerBalanceResp;
+        var extra = _sim.Get("marker");
+        return Ok(new
+        {
+            respondToMarker = m.RespondToRPC,
+            markerBalance = m.MarkerBalance,
+            creditLimit = m.CreditLimit,
+            statusCode = m.StatusCode,
+            immediateResponse = m.InmediateResponse,
+            proceedResponse = m.ProceedResponse,
+            repayResult = extra.TryGetValue("repayResult", out var rr) ? rr : null
+        });
+    }
+
+    [HttpPut("state")]
+    public IActionResult UpdateState([FromBody] Dictionary<string, object?> u)
+    {
+        var m = _marker.GetMarkerBalanceResp;
+        if (u.TryGetValue("respondToMarker", out var rm) && rm is not null) m.RespondToRPC = Convert.ToBoolean(rm);
+        if (u.TryGetValue("markerBalance", out var mb) && mb is not null) m.MarkerBalance = Convert.ToInt32(mb);
+        if (u.TryGetValue("creditLimit", out var cl) && cl is not null) m.CreditLimit = Convert.ToInt32(cl);
+        if (u.TryGetValue("statusCode", out var sc) && sc is not null) m.StatusCode = Convert.ToInt32(sc);
+        if (u.TryGetValue("immediateResponse", out var ir) && ir is not null) m.InmediateResponse = Convert.ToBoolean(ir);
+        if (u.TryGetValue("repayResult", out var rr)) _sim.Set("marker", "repayResult", rr);
+        return GetState();
+    }
+
+    [HttpPost("repay")]
+    public IActionResult Repay([FromBody] Dictionary<string, object?> body)
+    {
+        // Marker repay is a synchronous response toggle (model-only, no outbound RPC).
+        if (body.TryGetValue("amount", out var amt)) _sim.Set("marker", "lastRepayAmount", amt);
+        _marker.GetMarkerBalanceResp.ProceedResponse = true;
+        return GetState();
+    }
 }
 
 [ApiController]
@@ -559,10 +1186,36 @@ public class MarkerApiController : ControllerBase
 public class PcsApiController : ControllerBase
 {
     private readonly PCSViewModel _pcs;
-    public PcsApiController(PCSViewModel pcs) { _pcs = pcs; }
+    private readonly SimFeatureState _sim;
+    public PcsApiController(PCSViewModel pcs, SimFeatureState sim) { _pcs = pcs; _sim = sim; }
 
     [HttpGet("state")]
-    public IActionResult GetState() => Ok(new { message = "PCS Service active" });
+    public IActionResult GetState()
+    {
+        var extra = _sim.Get("pcs");
+        return Ok(new
+        {
+            respondToPcs = extra.TryGetValue("respondToPcs", out var rp) ? rp : null,
+            pointsBalance = extra.TryGetValue("pointsBalance", out var pb) ? pb : null,
+            cashbackBalance = extra.TryGetValue("cashbackBalance", out var cb) ? cb : null,
+            sessionLimit = extra.TryGetValue("sessionLimit", out var sl) ? sl : null,
+            timeLimit = extra.TryGetValue("timeLimit", out var tl) ? tl : null
+        });
+    }
+
+    [HttpPut("state")]
+    public IActionResult UpdateState([FromBody] Dictionary<string, object?> u)
+    {
+        // PCS uses a limit collection (PCSContainer); these scalar fields have no direct
+        // response-control model property, so retain them in-memory for UI round-tripping.
+        var extra = new Dictionary<string, object?>();
+        foreach (var key in new[] { "respondToPcs", "pointsBalance", "cashbackBalance", "sessionLimit", "timeLimit" })
+        {
+            if (u.TryGetValue(key, out var v)) extra[key] = v;
+        }
+        if (extra.Count > 0) _sim.Set("pcs", extra);
+        return GetState();
+    }
 }
 
 [ApiController]

@@ -55,8 +55,15 @@ namespace IGT.FloorNet.Tools.ServiceSimulator.RpcProviders
             bool RkeyToCreditEnable = HandPayViewModel.HandPayResponseModel.KeyToCreditEnable;
             t_selfServeOption RselfServeOption = HandPayViewModel.HandPayResponseModel.SelfServeOption;
 
-            bool isSameSignature = IKeysViewModel.keysModelHandpay.FloornetECDsaProvider.VerifySignature(
-                    IKeysViewModel.keysModelHandpay.PublicKey,
+            // Verify against the SMIB's registered public key (set on regSmibOnline), matching the
+            // EFT provider pattern. Guard with try/catch so a missing/invalid key or signature can
+            // never throw out of the RPC handler — an unhandled exception here causes the MessageBus
+            // to NAK and infinitely requeue the handpay (the "stuck handpay" backlog).
+            bool isSameSignature = false;
+            try
+            {
+                isSameSignature = IKeysViewModel.keysModelHandpay.FloornetECDsaProvider.VerifySignature(
+                    IKeysViewModel.GetSmibKey(RpcCallContext.Current.Uid) ?? "",
                     signature,
                     requestId,
                     type,
@@ -75,6 +82,11 @@ namespace IGT.FloorNet.Tools.ServiceSimulator.RpcProviders
                     playerId,
                     meters
                     );
+            }
+            catch (Exception ex)
+            {
+                _responseViewModel.Log($"handpay VerifySignature failed with exception: {ex}");
+            }
 
             var req = new Dictionary<string, object>
              {
@@ -133,20 +145,28 @@ namespace IGT.FloorNet.Tools.ServiceSimulator.RpcProviders
             string RrequestIdStr = KeyedOffViewModel.KeyedOffModel.RequestIdStr;
             long? sequence = KeyedOffViewModel.KeyedOffModel.Sequence;
 
-            bool isSameSignature = IKeysViewModel.keysModelHandpay.FloornetECDsaProvider.VerifySignature(
-                IKeysViewModel.keysModelHandpay.PublicKey,
-                signature,
-                requestId,
-                type,
-                amount,
-                dateTime,
-                cardId,
-                keyToCredit,
-                canceled,
-                identity,
-                playerId
-                );
-
+            // Same hardening as handpay(): verify against the SMIB's registered key and never throw.
+            bool isSameSignature = false;
+            try
+            {
+                isSameSignature = IKeysViewModel.keysModelHandpay.FloornetECDsaProvider.VerifySignature(
+                    IKeysViewModel.GetSmibKey(RpcCallContext.Current.Uid) ?? "",
+                    signature,
+                    requestId,
+                    type,
+                    amount,
+                    dateTime,
+                    cardId,
+                    keyToCredit,
+                    canceled,
+                    identity,
+                    playerId
+                    );
+            }
+            catch (Exception ex)
+            {
+                _responseViewModel.Log($"keyedOff VerifySignature failed with exception: {ex}");
+            }
 
             var req = new Dictionary<string, object>
              {

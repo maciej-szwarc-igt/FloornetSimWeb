@@ -10,8 +10,11 @@ builder.Logging.ClearProviders();
 builder.Logging.SetMinimumLevel(LogLevel.Trace);
 builder.Logging.AddNLog(builder.Configuration);
 
-// Configure Kestrel port
-var port = builder.Configuration.GetValue<int>("RESTServerPort", 5003);
+// Configure Kestrel port (appsettings.json "RESTServerPort" is the single source of truth).
+// This is a developer-facing local simulator that listens HTTP-only on loopback; there is no
+// public HTTPS endpoint to terminate TLS on. The tech-stack v26.01 "TLS 1.2 minimum" requirement
+// applies to the RabbitMQ/MessageBus transport, which is negotiated by IGT.FloorNet.MessageBus.
+var port = builder.Configuration.GetValue<int>("RESTServerPort", 5004);
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.ListenAnyIP(port);

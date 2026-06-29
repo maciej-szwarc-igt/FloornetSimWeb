@@ -81,9 +81,15 @@ namespace IGT.FloorNet.Tools.ServiceSimulator.EventHandlers
                     }
                     else
                     {
-                        // SMIB already considers itself registered — just track it
-                        _tracker.MarkRegistered(uid);
-                        _responseViewModel.Log($"[Checkin] SMIB {uid} already registered — now tracked");
+                        // SMIB already considers itself registered (persisted from a prior run),
+                        // but its persisted RegistrationFlags may NOT include the TITO single-wire
+                        // ticket-system bit (REG_SINGLE_WIRE_TICKET_SYSTEM). The only way to set that
+                        // flag — which the BE2 firmware uses to enable TITO_SASEGMEnhValidation (the
+                        // gate for Secure Enhanced getValidationIds / LP 0x4C) — is via setRegistration.
+                        // So push setRegistration once to (re)assert the current host config
+                        // (titoEnabled=true, etc.) regardless of the self-reported registered flag.
+                        _responseViewModel.Log($"[Checkin] SMIB {uid} already registered — re-asserting host config via setRegistration (ensures TitoEnabled/single-wire-ticket flag)");
+                        await AutoRegisterSmibAsync(uid);
                     }
                 }
                 else

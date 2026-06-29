@@ -43,6 +43,12 @@ namespace IGT.FloorNet.Tools.ServiceSimulator.Services
         {
             if (_smibs.TryGetValue(uid, out var state))
             {
+                // A fresh keepAlive proves the SMIB is alive again. If the offline
+                // sweep (or a prior gap) had marked it offline, bring it back online —
+                // this mirrors the real Registration service re-publishing regSmibOnline
+                // when a keepAlive resumes. Without this, a SMIB stays "Offline" in the
+                // GUI forever even though traffic is flowing.
+                state.Online = true;
                 state.LastKeepAlive = DateTime.UtcNow;
             }
         }

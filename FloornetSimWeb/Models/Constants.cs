@@ -64,6 +64,8 @@
         public const string LevelReset = "LevelReset";
         public const string LevelUpdate = "LevelUpdate";
         public const string WatHeartbeat = "WatHeartbeat";
+        public const string VoucherHeartbeat = "VoucherHeartbeat";
+        public const string VoucherConfig = "VoucherConfig";
         public const string WatConfig = "WatConfig";
         public const string StartCelebration = "StartCelebration";
         public const string StartAnticipation = "StartAnticipation";

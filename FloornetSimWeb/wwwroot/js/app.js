@@ -318,9 +318,11 @@ async function saveWatState() {
 }
 
 async function requestWatTransfer() {
+    const uid = await getWatTargetUid();
+    if (!uid) { alert('No target SMIB available. Select a SMIB above, or register a SMIB so it appears in the list.'); return; }
     const amount = parseInt(document.getElementById('wat-transfer-amount').value) || 0;
-    const direction = parseInt(document.getElementById('wat-transfer-dir').value);
-    await api('POST', '/api/wat/transfer', { amount, direction, accountId: document.getElementById('wat-account-id').value });
+    const direction = document.getElementById('wat-transfer-dir').value;
+    await api('POST', '/api/wat/transfer', { uid, amount, direction, accountId: document.getElementById('wat-account-id').value });
 }
 
 async function saveAmlState() {
@@ -482,6 +484,7 @@ async function refreshSmibList() {
     const disableSelect = document.getElementById('disable-uid');
     const lockSelect = document.getElementById('lock-uid');
     const resetSelect = document.getElementById('reset-uid');
+    const watSelect = document.getElementById('wat-uid');
     if (!resp || !resp.length) {
         list.innerHTML = '<em>No SMIBs detected yet</em>';
         return;
@@ -491,6 +494,7 @@ async function refreshSmibList() {
     disableSelect.innerHTML = '<option value="">-- select --</option>';
     lockSelect.innerHTML = '<option value="">-- select --</option>';
     resetSelect.innerHTML = '<option value="">-- select --</option>';
+    if (watSelect) watSelect.innerHTML = '<option value="">-- auto (single SMIB) --</option>';
     list.innerHTML = resp.map(s =>
         `<div>${s.uid} | ${s.registered ? '✓ Reg' : '✗ Unreg'} | ${s.online ? 'Online' : 'Offline'} | ${new Date(s.lastKeepAlive).toLocaleTimeString()}</div>`
     ).join('');
@@ -503,13 +507,29 @@ async function refreshSmibList() {
         disableSelect.appendChild(opt.cloneNode(true));
         lockSelect.appendChild(opt.cloneNode(true));
         resetSelect.appendChild(opt.cloneNode(true));
+        if (watSelect) watSelect.appendChild(opt.cloneNode(true));
     });
 }
 
+// Returns the Registration tab's target SMIB UID: the free-text field takes
+// precedence, then the dropdown selection, else empty.
 function getRegTargetUid() {
-    const selectVal = document.getElementById('reg-uid').value;
-    const textVal = document.getElementById('reg-uid-text').value.trim();
+    const textVal = (document.getElementById('reg-uid-text')?.value || '').trim();
+    const selectVal = document.getElementById('reg-uid')?.value || '';
     return textVal || selectVal || '';
+}
+
+// Returns the WAT target SMIB UID. Uses the WAT tab's own selector when set,
+// falls back to the Registration tab selection, and finally auto-selects the
+// sole detected SMIB so a transfer "just works" in the common single-SMIB case.
+async function getWatTargetUid() {
+    const local = document.getElementById('wat-uid');
+    if (local && local.value) return local.value;
+    const reg = getRegTargetUid();
+    if (reg) return reg;
+    const smibs = await api('GET', '/api/registration/smibs');
+    if (smibs && smibs.length === 1) return smibs[0].uid;
+    return '';
 }
 
 async function sendSetRegistration() {

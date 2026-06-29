@@ -369,7 +369,55 @@ namespace IGT.FloorNet.Tools.ServiceSimulator.RpcProviders
         }
         public Task<getSmibInterfacesResp> getSmibInterfaces(string uid)
         {
-            throw new NotImplementedException();
-        }        
+            // Production resolves the registered interface list for a SMIB from the Redis
+            // registration cache (ISmibRegProxy.GetRegistrationParamsAsync(uid).interfaces).
+            // The web simulator has no Redis cache, so it returns the interface set this
+            // simulator currently advertises (driven by the DiscoveryModel flags) as the
+            // set of interfaces available to the requesting SMIB.
+            List<string> interfaceNames = GetAdvertisedInterfaceNames();
+
+            var req = new Dictionary<string, object>
+            {
+                { nameof(uid), uid }
+            };
+            var resp = new getSmibInterfacesResp()
+            {
+                interfaces = interfaceNames,
+            };
+            _responseViewModel.LogRpc("getSmibInterfaces", req, resp, RpcCallContext.Current);
+            return Task.FromResult(resp);
+        }
+
+        /// <summary>
+        /// Builds the list of interface identifiers (e.g. "iDiags") this simulator currently
+        /// advertises, based on the enabled <see cref="DiscoveryModel"/> flags. Shared by
+        /// <see cref="getSmibInterfaces"/> and the REST surface.
+        /// </summary>
+        public List<string> GetAdvertisedInterfaceNames()
+        {
+            GetServiceInterfaceValues obj = new GetServiceInterfaceValues();
+            List<serviceDescr> interfaceValues = new List<serviceDescr>();
+
+            if (_discoveryModel.CardlessInterface) interfaceValues.Add(obj.GetiCardlessValue());
+            if (_discoveryModel.EftInterface) interfaceValues.Add(obj.GetiEftValue());
+            if (_discoveryModel.PlayerInterface) interfaceValues.Add(obj.GetiPlayerValue());
+            if (_discoveryModel.BonusInterface) interfaceValues.Add(obj.GetiBonusValue());
+            if (_discoveryModel.DiagsInterface) interfaceValues.Add(obj.GetiDiagsValue());
+            if (_discoveryModel.GatInterface) interfaceValues.Add(obj.GetiGatValue());
+            if (_discoveryModel.ConfInterface) interfaceValues.Add(obj.GetConfValue());
+            if (_discoveryModel.AMLInterface) interfaceValues.Add(obj.GetAMLValue());
+            if (_discoveryModel.DownloadInterface) interfaceValues.Add(obj.GetDownloadValue());
+            if (_discoveryModel.TitoInterface) interfaceValues.Add(obj.GetiTitoValue());
+            if (_discoveryModel.PinInterface) interfaceValues.Add(obj.GetiPinValue());
+            if (_discoveryModel.MarkerInterface) interfaceValues.Add(obj.GetiMarkerValue());
+            if (_discoveryModel.RGInterface) interfaceValues.Add(obj.GetiRGValue());
+            if (_discoveryModel.RegInterface) interfaceValues.Add(obj.GetiRegValue());
+            if (_discoveryModel.HandpayInterface) interfaceValues.Add(obj.GetiHandpayValue());
+            if (_discoveryModel.PCSInterface) interfaceValues.Add(obj.GetPCSValue());
+            if (_discoveryModel.IsmInterface) interfaceValues.Add(obj.GetiISMValue());
+            if (_discoveryModel.WatInterface) interfaceValues.Add(obj.GetiWatValue());
+
+            return interfaceValues.Select(s => s.@interface).ToList();
+        }
     }  
 }

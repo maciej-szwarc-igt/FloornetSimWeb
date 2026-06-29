@@ -1,8 +1,11 @@
 ﻿using IGT.FloorNet.EX.Tito;
 using IGT.FloorNet.MessageBus.Rpc;
 using IGT.FloorNet.Tools.ServiceSimulator.Models;
+using IGT.FloorNet.Tools.ServiceSimulator.Models.Persistence;
+using IGT.FloorNet.Tools.ServiceSimulator.Services;
 using IGT.FloorNet.Tools.ServiceSimulator.ViewModels;
 using IGT.FloorNet.Tools.ServiceSimulator.ViewModels.Titio;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -16,19 +19,22 @@ namespace IGT.FloorNet.Tools.ServiceSimulator.RpcProviders
         private readonly RedeemViewModel _redeemViewModel;
         private readonly ValidationViewModel _validationViewModel;
         private readonly ResponseViewModel _responseViewModel;
+        private readonly SimDbStore _db;
 
         public TitoRpcProvider(
             IssueViewModel issueViewModel,
             CommitViewModel commitViewModel,
             RedeemViewModel redeemViewModel,
             ValidationViewModel validationViewModel,
-            ResponseViewModel responseViewModel)
+            ResponseViewModel responseViewModel,
+            SimDbStore db)
         {
             _issueViewModel = issueViewModel;
             _commitViewModel = commitViewModel;
             _redeemViewModel = redeemViewModel;
             _validationViewModel = validationViewModel;
             _responseViewModel = responseViewModel;
+            _db = db;
         }
 
         public async Task<commitVoucherResp> commitVoucher(string voucherId, long transactionId, long transferAmount, t_action action, t_egmException egmException)
@@ -53,6 +59,7 @@ namespace IGT.FloorNet.Tools.ServiceSimulator.RpcProviders
             };
 
             _responseViewModel.LogRpc(Constants.CommitVoucher, req, resp, RpcCallContext.Current);
+            PersistCashout(nameof(commitVoucher), voucherId, transferAmount, transactionId, null, req, resp);
             return await Task.FromResult(resp);
         }
 
@@ -120,6 +127,7 @@ namespace IGT.FloorNet.Tools.ServiceSimulator.RpcProviders
             };
 
             _responseViewModel.LogRpc(Constants.IssueVoucher, req, resp, RpcCallContext.Current);
+            PersistCashout(nameof(issueVoucher), voucherId, voucherAmt, transactionId, cardId, req, resp);
             return await Task.FromResult(resp);
         }
 
@@ -152,7 +160,31 @@ namespace IGT.FloorNet.Tools.ServiceSimulator.RpcProviders
             }
 
             _responseViewModel.LogRpc(Constants.RedeemVoucher, req, resp, RpcCallContext.Current);
+            PersistCashout(nameof(redeemVoucher), voucherId, resp?.voucherAmount ?? 0, transactionId, cardId, req, resp);
             return await Task.FromResult(resp);
+        }
+
+        /// <summary>
+        /// Persists a TITO cashout/voucher RPC and its response to the SQLite store. Best-effort;
+        /// the RPC call context supplies the SMIB identity fields. Called from each voucher method.
+        /// </summary>
+        private void PersistCashout(string operation, string? voucherId, long amountCents, long? transactionId, string? cardId, object request, object? response)
+        {
+            var ctx = RpcCallContext.Current;
+            _db.InsertCashout(new CashoutRecord
+            {
+                ReceivedUtc = DateTime.UtcNow,
+                Operation = operation,
+                VoucherId = voucherId,
+                AmountCents = amountCents,
+                TransactionId = transactionId,
+                CardId = cardId,
+                Uid = ctx?.Uid,
+                MachineNum = ctx?.MachineNum,
+                SiteId = ctx?.SiteId,
+                RequestJson = JsonConvert.SerializeObject(request),
+                ResponseJson = response is null ? null : JsonConvert.SerializeObject(response)
+            });
         }
     }
 }
