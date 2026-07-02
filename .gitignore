@@ -40,6 +40,8 @@ artifacts/
 *.nupkg
 *.snupkg
 .nuget/
+# Repo-local offline package feed (see nuget.config "Local" source); populated from cache/Nexus per-dev
+local-packages/
 **/[Pp]ackages/*
 !**/[Pp]ackages/build/
 *.nuget.props
